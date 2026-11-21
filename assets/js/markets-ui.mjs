@@ -5,6 +5,8 @@ const fmt=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d,min
 const num=id=>Number($(id).value)||0;
 const hubs={jita:{region:10000002,station:60003760},amarr:{region:10000043,station:60008494},dodixie:{region:10000032,station:60011866},rens:{region:10000030,station:60004588},hek:{region:10000042,station:60005686}};
 const minerals=[[34,'Tritanium'],[35,'Pyerite'],[36,'Mexallon'],[37,'Isogen'],[38,'Nocxium'],[39,'Zydrine'],[40,'Megacyte']];
+const diverse=[[44992,'PLEX'],[40520,'Large Skill Injector'],[40519,'Skill Extractor'],[28668,'Nanite Repair Paste'],[23009,'Caldari Navy Antimatter Charge S']];
+let eveData=[],eveScanned=0;
 const gate=5*60*1000;
 let lastKey='',lastAt=0,latestRows=[];
 function message(s,ok=false){$('notice').textContent=s;$('notice').className='notice'+(ok?' ok':'');}
@@ -35,25 +37,46 @@ async function eveOrders(region,id){
  for(let page=2;page<=maxPages;page++){const x=await getJson(base+'&page='+page);if(!Array.isArray(x.data))throw new Error('Pagina ESI invalida');all.push(...x.data);}
  return {orders:all,partial};
 }
+
+function chosenEveItems(){
+ const group=$('group').value;
+ if(group==='minerals')return minerals;
+ if(group==='all')return [...diverse,...minerals];
+ if(group==='diverse')return diverse;
+ if(group==='custom'){
+  const ids=[...new Set($('customIds').value.split(/[;,\s]+/).map(x=>Number(x.trim())).filter(x=>Number.isInteger(x)&&x>0))].slice(0,20);
+  if(!ids.length)throw new Error('Informe ao menos um ID válido em IDs personalizados');
+  return ids.map(id=>[id,'Item #'+id]);
+ }
+ return minerals.filter(x=>String(x[0])===group);
+}
+function renderEveRows(){
+ const source=($('positiveOnly')?.checked)?eveData.filter(x=>x.quantity>0&&x.totalProfit>0):eveData;
+ render(source,'ISK');
+ const positive=eveData.filter(x=>x.quantity>0&&x.totalProfit>0).length;
+ $('summary').textContent='Itens da cesta examinados: '+eveScanned+'. Com par de ofertas: '+eveData.length+'. Positivos: '+positive+'. Negativos ou zerados: '+(eveData.length-positive)+'. '+(positive?'Resultados estimados e sujeitos à execução das ordens.':'Nenhuma margem positiva encontrada nesta amostra com as taxas e capital configurados; isso não significa que todo o mercado esteja sem oportunidades.');
+}
 async function scanEve(){
- const key=['eve',$('hub').value,$('group').value].join('/'),now=Date.now();
- if(key===lastKey&&now-lastAt<gate){message('A ESI tem cache de aproximadamente 5 minutos. Último conjunto de ordens obtido recentemente. Você pode alterar taxas e capital e clicar novamente após a janela de cache.');return;}
- const b=hubs[$('hub').value],chosen=$('group').value==='all'?minerals:minerals.filter(x=>String(x[0])===$('group').value);
+ const chosen=chosenEveItems();
+ const key=['eve',$('hub').value,...chosen.map(x=>x[0])].join('/'),now=Date.now();
+ if(key===lastKey&&now-lastAt<gate){renderEveRows();message('Consulta ESI recente. Mantivemos os dados existentes; você pode alternar a exibição sem novas requisições. Pesquise novamente após a janela de cache.');return;}
+ const b=hubs[$('hub').value];
  const results=[],problems=[],partial=[];
- for(const [id,name] of chosen){
-  state('Consultando ESI: '+name+' ('+(results.length+problems.length+1)+'/'+chosen.length+')');
+ for(let i=0;i<chosen.length;i++){
+  const [id,name]=chosen[i];
+  state('Consultando ESI: '+name+' ('+(i+1)+'/'+chosen.length+')');
   try{
    const {orders,partial:p}=await eveOrders(b.region,id);
    if(p)partial.push(name);
    const r=eveOpportunity(orders,b.station,num('capital'),num('tax'),num('broker'));
-   if(r)results.push({...r,name,id});else problems.push(name+': sem par de ordens na estação');
+   if(r)results.push({...r,name,id,partial:p});else problems.push(name+': sem par de ordens na estação');
   }catch(e){problems.push(name+': '+e.message);}
  }
- results.sort((a,b)=>b.totalProfit-a.totalProfit);
- render(results,'ISK');$('summary').textContent='Itens com compra e venda na estação: '+results.length+' de '+chosen.length+'. '+results.filter(x=>x.totalProfit>0).length+' com resultado hipotético positivo. '+(partial.length?'Amostra incompleta: '+partial.join(', ')+'. ':'');
+ eveScanned=chosen.length;eveData=results.sort((a,b)=>b.totalProfit-a.totalProfit);
+ renderEveRows();
  const complete=problems.length===0&&partial.length===0;
  if(results.length){lastKey=key;lastAt=Date.now();}
- message((complete?'Dados da ESI consultados. ':'Dados obtidos parcialmente. ')+(problems.length?'Pendências: '+problems.join(' | ')+'. ':'')+(partial.length?'Alguns livros tinham mais de quatro páginas; não considere o ranking completo. ':'')+'Nenhuma negociação foi executada.',complete);
+ message((complete?'Consulta ESI concluída. ':'Dados obtidos parcialmente. ')+(problems.length?'Pendências: '+problems.join(' | ')+'. ':'')+(partial.length?'Alguns livros tinham mais de quatro páginas; resultados podem omitir ordens melhores, e não devem ser tratados como ranking completo. ':'')+'Somente operações de lucro positivo são exibidas por padrão. Nenhuma negociação foi executada.',complete);
  state('Pesquisa concluída às '+new Date().toLocaleTimeString('pt-BR'));
 }
 let gw2Data=null;
@@ -96,5 +119,8 @@ async function onScan(){
 if(['eve','gw2'].includes(document.body.dataset.market)){
  $('scan').addEventListener('click',onScan);
  if(document.body.dataset.market==='gw2')for(const id of ['capital','margin','depth','itemSearch'])$(id).addEventListener('input',renderGw2);
- else for(const id of ['capital','tax','broker'])$(id).addEventListener('input',()=>{if(latestRows.length)message('Capital ou taxas alterados: clique para recalcular após a janela de cache. Nenhuma pesquisa automática.');});
+ else {
+  $('positiveOnly').addEventListener('change',renderEveRows);
+  for(const id of ['capital','tax','broker','group','hub','customIds'])$(id).addEventListener('input',()=>{message('Configuração alterada: clique em Pesquisar ordens agora para recalcular. Nenhuma consulta automática.');});
+ }
 }
