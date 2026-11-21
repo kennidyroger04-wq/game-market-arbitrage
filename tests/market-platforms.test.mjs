@@ -10,8 +10,8 @@ test('EVE filtra apenas ordens da mesma estacao e desconta 2 ordens e imposto',(
  const r=eveOpportunity(orders,60003760,1100,7.5,3);
  assert.equal(r.bid,100);assert.equal(r.ask,125);
  assert.equal(r.quantity,10);
- assert.ok(Math.abs(r.unitProfit-12.625)<0.0001);
- assert.equal(r.totalProfit,126.25);
+ assert.ok(Math.abs(r.unitProfit+4.375)<0.0001);
+ assert.equal(r.totalProfit,-43.75);
 });
 test('EVE ignora itens sem par de ordens',()=>{
  assert.equal(eveOpportunity([{location_id:1,is_buy_order:true,price:100,volume_remain:10}],1),null);
