@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#081923"><meta name="description" content="Pesquisa independente de flips no Grand Exchange do OSRS, com filtros para capital baixo, liquidez observada e risco de execução.">
+<title>Game Market Arbitrage | OSRS</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="shell">
+<header class="topbar">
+  <div class="brand"><div class="brand-icon">G↗</div><div><strong>GAME MARKET</strong><small>ARBITRAGE / OSRS</small></div></div>
+  <div class="topactions"><span id="dataStatus" class="chip">Sem dados</span><button id="reload" class="ghost">↻ Atualizar</button></div>
+</header>
+<main>
+<section class="hero">
+  <div class="eyebrow">GRAND EXCHANGE · MARKET INTELLIGENCE</div>
+  <h1>Encontre oportunidades.<br><em>Proteja seu GP.</em></h1>
+  <p>Flips analisados com dados de negociações, limites, impostos e liquidez. Feito para começar com pouco capital.</p>
+  <div class="hero-actions"><button class="primary" id="goResults">Explorar oportunidades →</button><button class="outlined" id="demo">Ver demonstração</button></div>
+  <div class="alert neutral" id="notice" role="status" aria-live="polite">Aguardando snapshot público da API. Sem ordens abertas, nenhum spread é lucro garantido.</div>
+</section>
+<section class="stats">
+  <article class="stat"><span>Oportunidades filtradas</span><strong id="resultCount">—</strong><small>Com taxas e limites</small></article>
+  <article class="stat"><span>Maior lucro hipotético</span><strong id="bestProfit">—</strong><small>GP, não garantido</small></article>
+  <article class="stat"><span>Itens monitorados</span><strong id="observedCount">—</strong><small>Observações da API</small></article>
+  <article class="stat"><span>Atualização do snapshot</span><strong id="lastFetch" class="date">—</strong><small id="sourceTag">OSRS Wiki API v2</small></article>
+</section>
+<section class="panel">
+ <div class="heading"><div><div class="eyebrow">01 / PERFIL</div><h2>Filtros de mercado</h2></div><button class="text-button" id="reset">Restaurar filtros</button></div>
+ <div class="form-grid">
+  <label>Capital disponível (GP)<input id="capital" type="number" min="0" value="25000" step="1000" inputmode="numeric"></label>
+  <label>Margem líquida mínima (%)<input id="margin" type="number" min="0" value="2" step=".5" inputmode="decimal"></label>
+  <label>Volume mínimo / 24 horas<input id="volume" type="number" min="0" value="1000" step="100"></label>
+  <label>Volume mínimo / 5 minutos<input id="volume5" type="number" min="0" value="5"></label>
+  <label>Idade máxima de cada cotação<select id="age"><option value="15">15 minutos</option><option value="30" selected>30 minutos</option><option value="60">1 hora</option><option value="120">2 horas</option></select></label>
+  <label>Ordenar por<select id="sort"><option value="profit">Lucro hipotético total</option><option value="margin">Maior margem %</option><option value="volume">Maior volume 24h</option><option value="perUnit">Lucro por unidade</option><option value="freshness">Preços mais recentes</option></select></label>
+ </div>
+ <div class="filter-footer"><label class="check"><input id="f2p" type="checkbox" checked>Somente itens F2P</label><label class="check"><input id="favoritesOnly" type="checkbox">Somente favoritos ★</label><label class="search"><span>⌕</span><input id="search" placeholder="Buscar item ou ID…"></label></div>
+ <p class="microcopy">Quantidade estimada = mínimo entre capital, limite de compra/4h e 1% do volume histórico de 24h. Essa é uma heurística e não garante liquidez.</p>
+</section>
+<section class="panel" id="results">
+ <div class="heading"><div><div class="eyebrow">02 / RANKING</div><h2>Oportunidades de flip</h2></div><button class="outlined small" id="csv" disabled>↓ Exportar CSV</button></div>
+ <div class="explainer"><strong>Importante:</strong> comprar no preço <b>low</b> e vender no <b>high</b> exige <b>duas ordens limitadas</b>. São preços de negociações passadas, <b>não ordens aguardando execução</b>. A compra imediata seguida de venda imediata tende a perder dinheiro.</div>
+ <div class="table-wrap"><table><thead><tr><th>Item</th><th>Comprar GP</th><th>Vender GP</th><th>Lucro/un.</th><th>Margem</th><th>Vol. 24h</th><th>Quantidade</th><th>Lucro total</th><th>Idade max.</th></tr></thead><tbody id="rows"><tr><td colspan="9" class="empty">Aguardando dados.</td></tr></tbody></table></div>
+ <div class="mobile-results" id="cards"></div>
+ <div class="list-foot"><span id="resultsText">Nenhum resultado.</span><button class="outlined small" id="more" hidden>Mostrar mais</button></div>
+</section>
+<div class="bottom-grid">
+ <section class="panel"><div class="eyebrow">03 / SIMULADOR</div><h2>Teste preços manualmente</h2><p class="subtle">Digite as ofertas confirmadas por você no Grand Exchange.</p>
+ <div class="form-grid sim-grid"><label>Compra GP/un.<input id="simBuy" type="number" min="1" value="100"></label><label>Venda GP/un.<input id="simSell" type="number" min="1" value="115"></label><label>Quantidade<input id="simQty" type="number" min="1" value="100"></label></div>
+ <div class="sim-out"><div><span>Resultado líquido estimado</span><strong id="simResult">—</strong></div><div><span>Imposto GP/unidade</span><strong id="simTax">—</strong></div></div>
+ <p class="microcopy">Imposto de 2%, arredondado para baixo e limitado a 5 milhões GP/un. Estimativa conservadora para itens isentos.</p></section>
+ <section class="panel"><div class="eyebrow">04 / REGISTRO</div><h2>Lucro realizado</h2><p class="subtle">Registre só compras e vendas concluídas. Dados salvos somente neste navegador.</p>
+ <form id="tradeForm" class="trade-form"><label>Item<input name="item" required maxlength="90" placeholder="Ex.: Air rune"></label><div class="form-grid sim-grid"><label>Compra GP<input name="buy" type="number" min="1" required></label><label>Venda GP<input name="sell" type="number" min="1" required></label><label>Qtd.<input name="qty" type="number" min="1" required></label></div><button class="primary" type="submit">+ Registrar</button></form>
+ <div class="journal-total">Total registrado: <strong id="journalTotal">0 GP</strong></div><div id="journalList" class="journal-list"><span class="subtle">Nenhuma negociação.</span></div></section>
+</div>
+<footer><p>Fonte: <a href="https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices" target="_blank" rel="noopener">OSRS Wiki Prices</a>. Independente, sem afiliação à Jagex. Não automatiza compras ou vendas dentro do jogo.</p><p>Resultado em GP não equivale a rendimento em reais. Venda de GP por dinheiro real fora dos mecanismos oficiais viola as regras da Jagex.</p></footer>
+</main>
+</div>
+<dialog id="detail"><form method="dialog"><button class="dialog-close" aria-label="Fechar">✕</button></form><div id="detailContent"></div></dialog>
+<script type="module" src="./assets/js/app.mjs"></script>
+</body>
+</html>
