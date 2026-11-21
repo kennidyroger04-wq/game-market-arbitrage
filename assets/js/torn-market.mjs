@@ -18,7 +18,7 @@ export function chooseScanItems(items,{category='all',capital=5000000,count=15,q
   const matches=items.filter(x=>ids.includes(x.id)||parts.some(p=>!/^\d+$/.test(p)&&x.name.toLowerCase().includes(p)));
   const seen=new Set();return matches.filter(x=>{if(seen.has(x.id))return false;seen.add(x.id);return true;}).slice(0,limit);
  }
- const safe=items.filter(x=>x.tradable&&x.marketPrice>=100&&x.marketPrice<=budget&& !EXCLUDED.has(x.type) && x.type!=='Unused');
+ const safe=items.filter(x=>x.tradable&&x.marketPrice>=100&&x.marketPrice<=budget*2&&TORN_GROUPS.includes(x.type)&& !EXCLUDED.has(x.type));
  const filtered=category==='all'?safe:safe.filter(x=>x.type===category);
  filtered.sort((a,b)=>b.circulation-a.circulation||a.marketPrice-b.marketPrice);
  if(category!=='all')return filtered.slice(0,limit);
