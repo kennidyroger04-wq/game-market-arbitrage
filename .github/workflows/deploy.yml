@@ -50,6 +50,8 @@ jobs:
           cp assets/js/*.mjs dist/assets/js/
           cp data/osrs-snapshot.json dist/data/
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
