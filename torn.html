@@ -23,13 +23,14 @@
 <div class="form-grid torn-inputs"><label class="field">Sua chave Torn (16 caracteres)
 <input id="tornApiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" placeholder="Cole a chave aqui"></label></div>
 <div class="torn-actions" style="margin-top:14px"><button type="button" id="testKey">Testar chave</button><button type="button" id="clearKey" style="color:var(--mint);background:transparent">Limpar chave</button><span id="keyState" class="statline">Chave não testada.</span></div>
-<p class="torn-info">A chave fica apenas neste campo e vai diretamente à API do Torn via cabeçalho Authorization. Não é gravada em URL, GitHub ou armazenamento local; ao fechar a aba, será necessário colá-la outra vez. Use uma chave de acesso público ou personalizada com permissões <strong>torn/items</strong> e <strong>market/itemmarket</strong>.</p>
+<p class="torn-info">A chave fica apenas neste campo e vai diretamente à API do Torn via cabeçalho Authorization. Não é gravada em URL, GitHub ou armazenamento local; ao fechar a aba, será necessário colá-la outra vez. Para usar a lista pronta, basta a permissão <strong>market → itemmarket</strong>. Para pesquisar todo o catálogo, acrescente <strong>torn → items</strong> à chave personalizada. Não é preciso Full Access.</p>
 <div id="keyNotice" role="status" class="notice">Para criar uma chave, você precisa ter conta no Torn. <a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener">Gerenciar chaves →</a></div>
 </section>
 <section class="panel">
 <h2>2. Configurar a busca de oportunidades</h2>
 <div class="form-grid torn-inputs">
 <label class="field">Capital disponível (T$)<input id="capital" type="number" min="0" value="5000000" step="10000"></label>
+<label class="field">Origem da lista de itens<select id="sourceMode"><option value="watchlist" selected>Lista pronta — sem permissão extra</option><option value="catalog">Catálogo completo — requer Torn → Items</option></select></label>
 <label class="field">Categoria<select id="category"><option value="all">Mercado geral — amostra variada</option><option value="Plushie">Pelúcias</option><option value="Flower">Flores</option><option value="Drug">Drogas do jogo</option><option value="Medical">Itens médicos</option><option value="Booster">Boosters</option><option value="Candy">Doces</option><option value="Alcohol">Bebidas alcoólicas</option><option value="Energy Drink">Energéticos</option><option value="Material">Materiais</option><option value="Supply Pack">Pacotes</option><option value="Other">Outros</option></select></label>
 <label class="field">Quantidade de itens por pesquisa<select id="scanCount"><option value="10">10 itens — rápida</option><option value="15" selected>15 itens — equilibrada</option><option value="30">30 itens — ampla</option></select></label>
 <label class="field">Margem líquida mínima (%)<input id="minMargin" type="number" min="0" max="99" step="0.5" value="2"></label>
@@ -38,16 +39,16 @@
 <label class="field">Idade máxima da cotação<select id="maxAge"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="120">120 min</option></select></label>
 <label class="field">Ordenar por<select id="sort"><option value="profit">Maior lucro hipotético</option><option value="margin">Maior margem líquida</option><option value="unit">Maior lucro por unidade</option><option value="age">Preços mais recentes</option></select></label>
 </div>
-<label class="field" style="margin-top:13px">Opcional: IDs ou nomes de itens para investigar especificamente
+<label class="field" style="margin-top:13px">Opcional: IDs específicos (nomes também no modo Catálogo completo)
 <input id="custom" type="text" placeholder="Ex.: 206, 258 ou parte do nome (separados por vírgulas)" maxlength="400">
 </label>
-<p class="small muted">Sem informar itens, o programa consulta um conjunto de até 30 produtos do catálogo oficial, distribuídos por categoria e faixa de preço. Isso é uma <strong>amostra do mercado</strong>, não uma varredura de todos os itens. A circulação informada pela API não mede a velocidade das vendas.</p>
+<p class="small muted">Por padrão, a busca utiliza <strong>uma lista inicial de 25 IDs conhecidos</strong> (flores, pelúcias e Xanax), sem solicitar o catálogo. Os <strong>preços são sempre consultados da API oficial</strong>, nunca da lista. Para buscar outras categorias e nomes de produtos, selecione Catálogo completo e libere Torn → Items na sua chave. A consulta é uma amostra do mercado, não uma varredura completa.</p>
 <div class="torn-actions" style="margin-top:14px">
 <button type="button" id="scan">Pesquisar oportunidades agora ↻</button>
 <button type="button" id="csv" disabled style="color:var(--mint);background:transparent">Exportar CSV</button>
 <span id="scanState" class="statline">Aguardando pesquisa manual.</span>
 </div>
-<div class="notice" role="status" id="marketNotice" aria-live="polite">Pesquisas somente ao clicar. O mercado do Torn publica cotações com cache global de aproximadamente uma hora; novas consultas podem retornar os mesmos anúncios.</div>
+<div class="notice" role="status" id="marketNotice" aria-live="polite">Pesquisas somente ao clicar. As cotações do Item Market utilizam cache global da API Torn; consultar novamente pode retornar os mesmos anúncios. O modo Lista pronta funciona com chave restrita ao mercado.</div>
 </section>
 <section class="panel" id="results">
 <div class="tag">03 / RANKING</div><h2>Possíveis oportunidades de revenda</h2>
@@ -70,5 +71,5 @@
 <section class="panel"><h2>Como interpretar?</h2><p>Uma oferta barata pode ser uma oportunidade, mas também pode ser um item parado, uma cotação atrasada ou um equipamento com atributos diferentes. Esta versão <strong>exclui equipamentos com atributos individuais</strong> e considera apenas anúncios comparáveis. Consulte o preço real no jogo antes de comprar e lembre-se da taxa normal de 5% na venda pelo Item Market.</p>
 <p><a href="https://wiki.torn.com/wiki/Item_Market" target="_blank" rel="noopener">Regras oficiais do Item Market →</a></p></section>
 </main><footer class="foot">Independente, sem afiliação com Torn. Consultas manuais à API oficial. Nenhuma transação executada.</footer>
-<script type="module" src="./assets/js/torn.mjs?v=3"></script>
+<script type="module" src="./assets/js/torn.mjs?v=4"></script>
 </body></html>
