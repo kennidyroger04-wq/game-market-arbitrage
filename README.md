@@ -1,4 +1,4 @@
-# Game Market Arbitrage — OSRS
+# Game Market Arbitrage — OSRS + mercados de jogos
 
 Painel em português, otimizado para celular, para analisar flips no Grand Exchange de Old School RuneScape.
 
@@ -11,6 +11,21 @@ Painel em português, otimizado para celular, para analisar flips no Grand Excha
 - Quando a API falha, o painel mostra erro. Dados de demonstração são fictícios e só aparecem se o usuário escolher.
 
 API pública: https://prices.runescape.wiki/api/v2/osrs
+
+
+## Mercados adicionais — pesquisa sob demanda
+
+- [Hub dos jogos](./markets.html): concentra todas as páginas, sem converter moedas entre jogos.
+- [EVE](./eve.html): ordens ESI em hubs espaciais. Cesta limitada, calcula corretagem, impostos e profundidade observada na estação. Pesquisa manual.
+- [Guild Wars 2](./gw2.html): API oficial; busca paginada por amostragem configurável (4, 6 ou 12 páginas, até 200 itens cada), com erro por página e dados parciais marcados. API pode retornar erros temporários 429/503.
+- [DOFUS](./dofus.html): comparador manual de lotes e importação local de CSV/JSON de fontes comunitárias (MizanBot, Kamaradar, DofusTeam, HDV Clair ou genérica) **quando o arquivo estiver disponível ao usuário**. Filtros de versão, servidor, idade máxima e intervalo de datas; registros sem servidor ou versão são rejeitados sem confirmação explícita. Não há API oficial pública de preços de HDV integrada; não há scraping nem bot.
+- [Albion Online](./albion.html): dados comunitários do Albion Data Project, escolhendo servidor (Europa/Américas/Ásia), cidades, idade e custo de transporte. Consulta manual ou importação de JSON local. Estimativa de arbitragem entre cidades apenas, sem garantia de volume.
+- [Prosperous Universe](./prun.html): dados públicos comunitários FIO REST `/exchange/all`, com comparação na mesma bolsa (duas ordens passivas) ou entre bolsas (transporte). Consulta manual ou importação de JSON local.
+- [Torn](./torn.html): **ainda não integrado**: depende de chave da API oficial, permissões e decisão sobre armazenamento seguro.
+
+**Validação:** testes locais exercitam fórmulas e filtros com dados simulados. Não equivalem a testes reais das APIs no navegador público. CORS, limites, indisponibilidade dos servidores e formato de exportações comunitárias ainda podem causar falhas; páginas explicam o erro, sem fabricar valores.
+
+A coleta do MizanBot é feita pelo serviço de terceiros, que declara usar bots. Este projeto não opera bots, não captura pacotes e não interage com o cliente DOFUS. A importação só lê arquivos obtidos pelo usuário, conforme permissões e condições das fontes; ela não substitui autorização para reutilização automatizada.
 
 ## Publicação com GitHub Pages
 
