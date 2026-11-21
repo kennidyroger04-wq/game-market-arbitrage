@@ -68,4 +68,21 @@ async function scan(){
 $('scan').addEventListener('click',scan);
 const bind=kind==='albion'?['capital','tax','transport','age','positiveOnly','source','destination']:['capital','fee','transport','mode','exchange','positiveOnly','material'];
 for(const id of bind)$(id).addEventListener('input',()=>{if(cache)(kind==='albion'?recalcAlbion:recalcFio)();});
-for(const id of kind==='albion'?['region','custom']:[])$(id).addEventListener('input',()=>setNotice('Itens ou servidor alterados. Clique em Pesquisar mercado agora para obter cotações correspondentes.'));
+if(kind==='albion')for(const id of ['region','custom'])$(id).addEventListener('input',()=>{
+ cache=null;cacheKey='';$('rows').innerHTML='<tr><td colspan="9" class="muted">Servidor ou itens alterados. Faça nova pesquisa antes de comparar.</td></tr>';
+ $('summary').textContent='';setNotice('Itens ou servidor alterados. Clique em Pesquisar mercado agora. Não reutilizamos dados de outro mundo.');
+});
+$('localImport').addEventListener('click',async()=>{
+ const f=$('localFile').files?.[0];if(!f){setNotice('Selecione um JSON da fonte comunitária.');return;}
+ if(f.size>8_000_000){setNotice('O arquivo JSON deve ter menos de 8 MB.');return;}
+ try{
+  const data=JSON.parse(await f.text());
+  if(!Array.isArray(data)||!data.length)throw new Error('O arquivo não é uma lista JSON de cotações.');
+  if(kind==='albion'&&!data.some(x=>x&&x.item_id&&x.city))throw new Error('Não reconheci campos Albion item_id e city.');
+  if(kind==='prun'&&!data.some(x=>x&&x.MaterialTicker&&x.ExchangeCode))throw new Error('Não reconheci MaterialTicker e ExchangeCode do FIO.');
+  cache={data};cacheKey='arquivo-local';cacheTime=Date.now();
+  (kind==='albion'?recalcAlbion:recalcFio)();
+  setNotice('Arquivo JSON comunitário importado localmente ('+data.length+' registros). Confirme servidor, data da cotação, fornecedor e condições de negociação antes de operar.',true);
+  setState('Importação manual às '+new Date().toLocaleTimeString('pt-BR'));
+ }catch(e){setNotice('Erro ao importar: '+e.message);}
+});
