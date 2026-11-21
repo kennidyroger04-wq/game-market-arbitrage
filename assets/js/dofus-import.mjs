@@ -48,13 +48,13 @@ function rowsOf(payload){
  if(Array.isArray(payload))return payload;
  if(!payload||typeof payload!=='object')return[];
  for(const key of ['data','items','rows','results','records','prices','list','offers']){
-  const v=best(payload,[key]);if(Array.isArray(v))return v.map(o=>typeof o==='object'&&o?{...o,__defaultServer:best(payload,['server','server_name','world'])}:o);
+  const v=best(payload,[key]);if(Array.isArray(v))return v.map(o=>typeof o==='object'&&o?{...o,__defaultServer:best(payload,['server','server_name','world']),__defaultVersion:best(payload,['version','game_version','edition']),__defaultDate:best(payload,['updated_at','date','timestamp'])}:o);
  }
  // Map keyed by item name: { "Iron":{x1:...,x10:...}, ... }
  return Object.entries(payload).filter(([k,v])=>v&&typeof v==='object'&&!Array.isArray(v)).map(([name,v])=>({name,...v}));
 }
 function lotPrice(row,n){
- const direct=best(row,['x'+n,'price'+n,'price_x'+n,'prix'+n,'prix_'+n,'lot'+n,'lot_'+n,'p'+n,n+'x','quantity'+n,'price_per_'+n,'price_lot_'+n,'unit_'+n,'lot'+n+'Price']);
+ const direct=best(row,['x'+n,'price'+n,'price_x'+n,'prix'+n,'prix_'+n,'lot'+n,'lot_'+n,'p'+n,n+'x','price_per_'+n,'price_lot_'+n,'unit_'+n,'lot'+n+'Price']);
  if(direct!==undefined)return money(direct);
  const prices=best(row,['prices','lots','lot_prices','listings','market_prices','marketplace_prices','hdv_prices']);
  if(prices&&typeof prices==='object'){
@@ -82,12 +82,12 @@ function normalizeEntries(rows,selectedServer,selectedVersion='dofus3',source='m
   const server=typeof rawServer==='object'?String(best(rawServer,['name','label'])??''):String(rawServer??'').trim();
   if(server&&selectedServer&&serverOf(server)!==serverOf(selectedServer)){stats.differentServer++;continue;}
   if(!server&&!allowMissingServer){stats.missingServer++;continue;}
-  const rawVersion=best(item,['version','game_version','gameVersion','game','edition','client']);
+  const rawVersion=best(item,['version','game_version','gameVersion','game','edition','client'])??item.__defaultVersion;
   const actualVersion=versionOf(rawVersion)||(!rawVersion?sourceVersion:'');
   if(rawVersion&&!actualVersion){stats.missingVersion++;continue;}
   if(actualVersion&&actualVersion!==selectedVersion){stats.differentVersion++;continue;}
   if(!actualVersion&&!allowMissingVersion){stats.missingVersion++;continue;}
-  const date=parsableDate(best(item,['updated_at','updatedAt','last_updated','lastUpdate','updated','date','timestamp','checked_at','observed_at','collected_at','created_at']));
+  const date=parsableDate(best(item,['updated_at','updatedAt','last_updated','lastUpdate','updated','date','timestamp','checked_at','observed_at','collected_at','created_at'])??item.__defaultDate);
   const prices=Object.fromEntries(sizes.map(n=>[n,lotPrice(item,n)]));
   const lotSize=Number(best(item,['lot_size','lotSize','lot','size']));
   const onePrice=money(best(item,['price','unit_price','kamas','amount','value']));
