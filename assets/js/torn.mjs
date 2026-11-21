@@ -1,4 +1,4 @@
-import {normalizeCatalog,chooseScanItems,analyzeItemMarket,csvTorn} from './torn-market.mjs?v=1';
+import {normalizeCatalog,chooseScanItems,analyzeItemMarket,csvTorn} from './torn-market.mjs?v=2';
 /** Torn API v2 - nenhuma pesquisa agendada, chave somente em memória do campo. */
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
