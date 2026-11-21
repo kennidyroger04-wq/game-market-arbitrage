@@ -1,4 +1,5 @@
 import {analyze,geTax,ageMinutes,demoSnapshot,toCsv} from './market.mjs';
+import {fetchLiveSnapshot} from './api.mjs';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=x=>Number.isFinite(Number(x))?Number(x):0;
@@ -57,32 +58,39 @@ function renderTrades(){
  $('journalTotal').textContent=(total>=0?'+':'')+fmt(total)+' GP';
  $('journalList').innerHTML=trades.length?trades.slice().reverse().map(t=>'<div class="journal-item"><div><strong>'+esc(t.item)+'</strong><br><span class="subtle">'+esc(t.date)+' · '+fmt(t.qty)+'un · '+fmt(t.buy)+' → '+fmt(t.sell)+' GP</span></div><div><b>'+fmt((t.sell-geTax(t.sell)-t.buy)*t.qty)+' GP</b><button title="Excluir" data-remove="'+esc(t.id)+'">✕</button></div></div>').join(''):'<span class="subtle">Nenhuma negociação registrada.</span>';
 }
+let lastSuccess=0;
 async function load(){
- status('Consultando…');$('reload').disabled=true;
+ if($('reload').disabled)return;
+ const elapsed=Date.now()-lastSuccess;
+ if(lastSuccess&&elapsed<60_000){
+   notice('Preços consultados recentemente. Aguarde '+Math.ceil((60_000-elapsed)/1000)+'s antes de outra pesquisa. Os filtros funcionam imediatamente.','neutral');
+   return;
+ }
+ status('Consultando API…');$('reload').disabled=true;$('searchNow').disabled=true;
  try{
-  const response=await fetch('./data/osrs-snapshot.json?t='+Date.now(),{cache:'no-store'});
-  if(!response.ok)throw Error('HTTP '+response.status+'; ainda não publicado');
-  const data=await response.json();
-  if(data.schema_version!==1||data.game!=='osrs'||!Array.isArray(data.items)||data.items.length<100)throw Error('snapshot incompatível ou incompleto');
-  if(!Number.isFinite(Date.parse(data.fetched_at)))throw Error('horário inválido do snapshot');
-  snapshot=data;demo=false;visible=30;
-  const age=ageMinutes(Date.parse(data.fetched_at)/1000);
-  if(age>120){status('Dados antigos',true);notice('Coleta feita há '+Math.round(age)+' min. Não negocie sem conferir os preços no jogo.','warning');}
-  else{status('Coleta '+Math.round(age)+' min');notice('Dados reais coletados há '+Math.round(age)+' minutos. high/low são transações observadas, não ordens abertas.','success');}
-  update();
+   const data=await fetchLiveSnapshot();
+   snapshot=data;demo=false;visible=30;lastSuccess=Date.now();
+   status('Atualizado agora');
+   notice('Consulta direta à OSRS Wiki realizada: '+fmt(data.items.length)+' itens. Sem GitHub Actions. Atenção: high/low são NEGÓCIOS EXECUTADOS, não ordens disponíveis para venda imediata.','success');
+   update();
  }catch(e){
-  snapshot=null;rows=[];status('Sem dados reais',true);
-  notice('Não há coleta válida publicada: '+e.message+'. Entre no repositório → Actions e execute "Atualizar OSRS e publicar". O botão demonstração utiliza somente itens fictícios.','warning');
-  $('rows').innerHTML='<tr><td colspan="9" class="empty">Nenhum snapshot publicado. Acione o GitHub Actions.</td></tr>';
-  $('cards').innerHTML='';$('csv').disabled=true;
- }finally{$('reload').disabled=false;}
+   if(!snapshot||demo){
+     snapshot=null;rows=[];$('rows').innerHTML='<tr><td colspan="9" class="empty">Sem consulta válida. Tente novamente pelo botão Pesquisar agora.</td></tr>';
+     $('cards').innerHTML='';
+     $('csv').disabled=true;
+   }
+   status('Falha na API',true);
+   notice('Não foi possível acessar a OSRS Wiki diretamente: '+e.message+'. Confirme a conexão e tente Pesquisar agora. Nenhum dado fictício foi utilizado.','warning');
+ }finally{$('reload').disabled=false;$('searchNow').disabled=false;}
 }
+
 function exportCSV(){
  const blob=new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download='osrs-oportunidades'+(demo?'-DEMO':'')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 for(const id of ['capital','margin','volume','volume5','age','sort','f2p','favoritesOnly','search'])$(id).addEventListener('input',()=>{visible=30;update();});
 $('reload').addEventListener('click',load);
+$('searchNow').addEventListener('click',load);
 $('demo').addEventListener('click',()=>{snapshot=demoSnapshot();demo=true;visible=30;status('DEMONSTRAÇÃO',true);notice('ATENÇÃO: todos os preços e itens desta demonstração são fictícios. Não utilize para operar.','warning');update();});
 $('goResults').addEventListener('click',()=>$('results').scrollIntoView({behavior:'smooth'}));
 $('reset').addEventListener('click',()=>{$('capital').value=25000;$('margin').value=2;$('volume').value=1000;$('volume5').value=5;$('age').value=30;$('sort').value='profit';$('f2p').checked=true;$('favoritesOnly').checked=false;$('search').value='';update();});
