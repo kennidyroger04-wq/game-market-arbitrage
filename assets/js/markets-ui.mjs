@@ -6,7 +6,7 @@ const num=id=>Number($(id).value)||0;
 const hubs={jita:{region:10000002,station:60003760},amarr:{region:10000043,station:60008494},dodixie:{region:10000032,station:60011866},rens:{region:10000030,station:60004588},hek:{region:10000042,station:60005686}};
 const minerals=[[34,'Tritanium'],[35,'Pyerite'],[36,'Mexallon'],[37,'Isogen'],[38,'Nocxium'],[39,'Zydrine'],[40,'Megacyte']];
 const diverse=[[44992,'PLEX'],[40520,'Large Skill Injector'],[40519,'Skill Extractor'],[28668,'Nanite Repair Paste'],[23009,'Caldari Navy Antimatter Charge S']];
-let eveData=[],eveScanned=0;
+let eveData=[],eveScanned=0,eveBooks=[],eveStation=null;
 const gate=5*60*1000;
 let lastKey='',lastAt=0,latestRows=[];
 function message(s,ok=false){$('notice').textContent=s;$('notice').className='notice'+(ok?' ok':'');}
@@ -50,6 +50,11 @@ function chosenEveItems(){
  }
  return minerals.filter(x=>String(x[0])===group);
 }
+function recalculateEve(){
+ if(!eveBooks.length||eveStation===null)return;
+ eveData=eveBooks.map(x=>{const r=eveOpportunity(x.orders,eveStation,num('capital'),num('tax'),num('broker'));return r?{...r,id:x.id,name:x.name,partial:x.partial}:null}).filter(Boolean).sort((a,b)=>b.totalProfit-a.totalProfit);
+ renderEveRows();
+}
 function renderEveRows(){
  const source=($('positiveOnly')?.checked)?eveData.filter(x=>x.quantity>0&&x.totalProfit>0):eveData;
  render(source,'ISK');
@@ -59,23 +64,24 @@ function renderEveRows(){
 async function scanEve(){
  const chosen=chosenEveItems();
  const key=['eve',$('hub').value,...chosen.map(x=>x[0])].join('/'),now=Date.now();
- if(key===lastKey&&now-lastAt<gate){renderEveRows();message('Consulta ESI recente. Mantivemos os dados existentes; você pode alternar a exibição sem novas requisições. Pesquise novamente após a janela de cache.');return;}
+ if(key===lastKey&&now-lastAt<gate){recalculateEve();message('Consulta ESI recente. Mantivemos os dados existentes; você pode alternar a exibição sem novas requisições. Pesquise novamente após a janela de cache.');return;}
  const b=hubs[$('hub').value];
- const results=[],problems=[],partial=[];
+ const results=[],problems=[],partial=[],books=[];
  for(let i=0;i<chosen.length;i++){
   const [id,name]=chosen[i];
   state('Consultando ESI: '+name+' ('+(i+1)+'/'+chosen.length+')');
   try{
    const {orders,partial:p}=await eveOrders(b.region,id);
+   books.push({id,name,orders,partial:p});
    if(p)partial.push(name);
    const r=eveOpportunity(orders,b.station,num('capital'),num('tax'),num('broker'));
    if(r)results.push({...r,name,id,partial:p});else problems.push(name+': sem par de ordens na estação');
   }catch(e){problems.push(name+': '+e.message);}
  }
- eveScanned=chosen.length;eveData=results.sort((a,b)=>b.totalProfit-a.totalProfit);
- renderEveRows();
+ eveScanned=chosen.length;eveBooks=books;eveStation=b.station;
+ recalculateEve();
  const complete=problems.length===0&&partial.length===0;
- if(results.length){lastKey=key;lastAt=Date.now();}
+ if(books.length){lastKey=key;lastAt=Date.now();}
  message((complete?'Consulta ESI concluída. ':'Dados obtidos parcialmente. ')+(problems.length?'Pendências: '+problems.join(' | ')+'. ':'')+(partial.length?'Alguns livros tinham mais de quatro páginas; resultados podem omitir ordens melhores, e não devem ser tratados como ranking completo. ':'')+'Somente operações de lucro positivo são exibidas por padrão. Nenhuma negociação foi executada.',complete);
  state('Pesquisa concluída às '+new Date().toLocaleTimeString('pt-BR'));
 }
@@ -121,6 +127,7 @@ if(['eve','gw2'].includes(document.body.dataset.market)){
  if(document.body.dataset.market==='gw2')for(const id of ['capital','margin','depth','itemSearch'])$(id).addEventListener('input',renderGw2);
  else {
   $('positiveOnly').addEventListener('change',renderEveRows);
-  for(const id of ['capital','tax','broker','group','hub','customIds'])$(id).addEventListener('input',()=>{message('Configuração alterada: clique em Pesquisar ordens agora para recalcular. Nenhuma consulta automática.');});
+  for(const id of ['capital','tax','broker'])$(id).addEventListener('input',()=>{recalculateEve();message('Capital e taxas recalculados localmente com as últimas ordens obtidas. Para atualizar os preços, clique em Pesquisar ordens agora.');});
+  for(const id of ['group','hub','customIds'])$(id).addEventListener('input',()=>{message('Mercado ou estação alterados: clique em Pesquisar ordens agora. Nenhuma consulta automática.');});
  }
 }
