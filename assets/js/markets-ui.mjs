@@ -23,7 +23,7 @@ async function getJson(url){
   const r=await fetch(url,{signal:ac.signal,headers:{Accept:'application/json'}});
   if(!r.ok)throw new Error('HTTP '+r.status+' em '+new URL(url).pathname);
   const j=await r.json();if(j?.error)throw new Error('A fonte respondeu com erro');
-  return {data:j,pages:Number(r.headers.get('x-pages'))||1};
+  return {data:j,pages:Number(r.headers.get('x-pages'))||1,pageTotal:Number(r.headers.get('x-page-total'))||0};
  }catch(e){if(e.name==='AbortError')throw new Error('A consulta excedeu 30 segundos');throw e;}
  finally{clearTimeout(timer);}
 }
@@ -99,22 +99,48 @@ function renderGw2(){
 async function scanGw2(){
  const now=Date.now();
  if(gw2Data&&now-lastAt<60000){message('Consulta recente: os filtros estão disponíveis sem novas requisições por um minuto.',true);renderGw2();return;}
- state('Obtendo todas as cotações…');
- const ans=await getJson('https://api.guildwars2.com/v2/commerce/prices?ids=all');
- if(!Array.isArray(ans.data)||ans.data.length<100)throw new Error('A API devolveu uma lista de preços incompleta');
- gw2Data=ans.data;
- state('Identificando itens com maior margem…');
+ const limit=Math.max(1,Math.min(12,Number($('pages')?.value)||6));
+ const base='https://api.guildwars2.com/v2/commerce/prices?page=';
+ const all=[],issues=[],visited=new Set();
+ state('GW2: consultando primeira página de preços…');
+ let first;
+ try{first=await getJson(base+'0&page_size=200');}
+ catch(e){throw new Error('Página 0: '+e.message+'. O endpoint pode estar temporariamente indisponível; tente o link de teste da API.');}
+ if(!Array.isArray(first.data)||!first.data.length)throw new Error('A primeira página não retornou lista de preços.');
+ all.push(...first.data);visited.add(0);
+ const total=first.pageTotal||0;
+ // Amostragem distribuída entre as páginas quando o cabeçalho permite.
+ const pages=total>limit?Array.from({length:limit},(_,i)=>Math.floor(i*(total-1)/Math.max(1,limit-1))):Array.from({length:total||limit},(_,i)=>i);
+ for(const page of pages){
+  if(visited.has(page))continue;
+  state('GW2: consultando página '+page+' ('+visited.size+'/'+pages.length+')');
+  try{
+   const r=await getJson(base+page+'&page_size=200');
+   if(!Array.isArray(r.data))throw new Error('Resposta inválida');
+   all.push(...r.data);visited.add(page);
+   if(!r.data.length)break;
+  }catch(e){issues.push('Página '+page+': '+e.message);if(issues.length>=2)break;}
+ }
+ gw2Data=[...new Map(all.filter(p=>p&&Number.isInteger(Number(p.id))).map(p=>[Number(p.id),p])).values()];
+ state('GW2: identificando nomes dos itens…');
  const candidates=gw2Data.map(p=>gw2Opportunity(p,num('capital'))).filter(Boolean).filter(r=>r.quantity>=1&&r.unitProfit>0).sort((a,b)=>b.totalProfit-a.totalProfit).slice(0,120);
- // A pesquisa por nomes abrange os candidatos; itens nao resolvidos ficam com o ID.
+ let nameCount=0;
  if(candidates.length){
-  const ids=candidates.map(c=>c.id),named=await getJson('https://api.guildwars2.com/v2/items?ids='+ids.join(',')).catch(()=>null);
-  const nameMap=new Map(Array.isArray(named?.data)?named.data.map(x=>[Number(x.id),String(x.name)]):[]);
-  gw2Data=gw2Data.map(p=>({...p,name:nameMap.get(Number(p.id))||('Item #'+p.id)}));
+   const idBatches=[];for(let i=0;i<candidates.length;i+=100)idBatches.push(candidates.slice(i,i+100).map(c=>c.id));
+   const nameMap=new Map();
+   for(const ids of idBatches){
+    try{
+     const named=await getJson('https://api.guildwars2.com/v2/items?ids='+ids.join(',')+'&lang=pt');
+     if(Array.isArray(named.data))for(const x of named.data)nameMap.set(Number(x.id),String(x.name));
+    }catch(e){issues.push('Nomes: '+e.message);}
+   }
+   nameCount=nameMap.size;
+   gw2Data=gw2Data.map(p=>({...p,name:nameMap.get(Number(p.id))||('Item #'+p.id)}));
  }
  lastAt=Date.now();renderGw2();
- const named=gw2Data.filter(p=>!String(p.name).startsWith('Item #')).length;
- message('Consulta oficial concluída: '+fmt(gw2Data.length)+' registros. Nomes resolvidos: '+named+'. Não há pesquisa automática. '+(named===0?'Alguns itens estão identificados apenas pelo ID.':''),true);
- state('Consulta concluída às '+new Date().toLocaleTimeString('pt-BR'));
+ const partial=!total||visited.size<total||issues.length>0;
+ message('GW2: '+fmt(gw2Data.length)+' itens consultados em '+visited.size+' página(s); '+nameCount+' nomes identificados. '+(partial?'Amostra parcial do mercado; não representa todas as oportunidades. ':'')+(issues.length?'Problemas: '+issues.join(' | ')+'. ':'')+'Pesquisa exclusivamente manual.',issues.length===0);
+ state('GW2: consulta finalizada às '+new Date().toLocaleTimeString('pt-BR'));
 }
 async function onScan(){
  $('scan').disabled=true;message('Consultando a API oficial…');const isEve=document.body.dataset.market==='eve';
