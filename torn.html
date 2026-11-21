@@ -1,45 +1,74 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
+<html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#071922">
-<title>Torn | Game Market Arbitrage</title>
+<meta name="theme-color" content="#071922"><title>Radar Torn | Game Market Arbitrage</title>
 <link rel="stylesheet" href="./assets/markets.css?v=1">
-</head>
-<body>
-<header><a class="logo" href="./markets.html">G↗ GAME MARKET</a><nav><a href="./index.html">OSRS</a><a href="./markets.html">Jogos</a><a href="./eve.html">EVE</a><a href="./gw2.html">GW2</a><a href="./dofus.html">DOFUS</a><a href="./torn.html" aria-current="page">Torn</a></nav></header>
-<main>
-<div class="tag">TORN · API V2 OFICIAL · CONSULTAS MANUAIS</div>
-<h1>Mercado Torn.</h1>
-<p class="lead">Use uma chave de leitura do seu próprio jogador para consultar anúncios do Item Market. O analisador não compra nem vende itens e nunca envia sua chave para o GitHub.</p>
+<style>
+.torn-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.torn-metrics article{margin:0}.torn-metrics strong{font-size:1.45rem;display:block}
+.torn-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.torn-actions a{font-weight:600}
+.torn-table button{background:transparent;border:0;color:var(--mint);padding:3px;font-weight:700;text-align:left}
+.torn-info{font-size:.84rem;color:var(--sub)}
+.torn-inputs{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+</style></head>
+<body><header>
+<a class="logo" href="./markets.html">G↗ GAME MARKET</a><nav><a href="./index.html">OSRS</a><a href="./markets.html">Jogos</a><a href="./eve.html">EVE</a><a href="./gw2.html">GW2</a><a href="./dofus.html">DOFUS</a><a href="./torn.html" aria-current="page">Torn</a></nav>
+</header><main>
+<div class="tag">TORN · RADAR DE OPORTUNIDADES · API OFICIAL V2</div>
+<h1>Encontre itens abaixo do mercado.</h1>
+<p class="lead">Em vez de consultar um item de cada vez, pesquise uma seleção de produtos, compare o menor anúncio com um preço de revenda de referência, desconte taxas e veja um ranking de <strong>oportunidades hipotéticas</strong>. Não executa compras nem vendas.</p>
 <section class="panel">
-<h2>1. Criar sua chave (precisa de conta no jogo)</h2>
-<p>O cadastro no Torn é gratuito. Depois de entrar, crie uma chave <strong>Custom</strong> liberando somente <strong>market → itemmarket</strong>. Também é possível utilizar uma chave <strong>Public Only</strong>.</p>
-<p class="row"><a href="https://www.torn.com/" target="_blank" rel="noopener noreferrer">Criar conta Torn →</a><a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener noreferrer">Criar chave na conta →</a><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Documentação oficial →</a></p>
+<h2>1. Conectar sua API</h2>
+<div class="form-grid torn-inputs"><label class="field">Sua chave Torn (16 caracteres)
+<input id="tornApiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" placeholder="Cole a chave aqui"></label></div>
+<div class="torn-actions" style="margin-top:14px"><button type="button" id="testKey">Testar chave</button><button type="button" id="clearKey" style="color:var(--mint);background:transparent">Limpar chave</button><span id="keyState" class="statline">Chave não testada.</span></div>
+<p class="torn-info">A chave fica apenas neste campo e vai diretamente à API do Torn via cabeçalho Authorization. Não é gravada em URL, GitHub ou armazenamento local; ao fechar a aba, será necessário colá-la outra vez. Use uma chave de acesso público ou personalizada com permissões <strong>torn/items</strong> e <strong>market/itemmarket</strong>.</p>
+<div id="keyNotice" role="status" class="notice">Para criar uma chave, você precisa ter conta no Torn. <a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener">Gerenciar chaves →</a></div>
 </section>
 <section class="panel">
-<h2>2. Sua chave de API</h2>
-<div class="form-grid"><label class="field">Chave API Torn (16 caracteres)
-<input id="tornApiKey" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Cole sua chave aqui" maxlength="64" aria-describedby="keyPrivacy">
-</label></div>
-<p id="keyPrivacy" class="small muted">A chave permanece apenas neste campo enquanto a página estiver aberta; não usamos localStorage, sessionStorage, cookies ou parâmetros na URL. Nas consultas, é enviada <strong>somente à API oficial do Torn</strong> no cabeçalho Authorization. Não compartilhe sua chave por chat ou capturas de tela. Ao atualizar ou fechar a página, será necessário digitá-la novamente.</p>
-<div class="row"><button type="button" id="testKey">Testar chave</button><button type="button" id="clearKey" style="background:transparent;color:var(--mint)">Limpar chave</button><span id="keyState" class="statline">Nenhuma chave testada.</span></div>
-<div id="keyNotice" class="notice" role="status" aria-live="polite">Sem chave, nenhuma consulta será enviada.</div>
-</section>
-<section class="panel">
-<h2>3. Consultar anúncios por item</h2>
-<div class="form-grid">
-<label class="field">ID do item<input id="itemId" type="number" value="206" min="1" max="9999999" step="1" inputmode="numeric"></label>
-<label class="field">Quantidade máxima de anúncios para exibição<select id="rowLimit"><option value="10">10 anúncios</option><option value="25" selected>25 anúncios</option><option value="50">50 anúncios</option></select></label>
+<h2>2. Configurar a busca de oportunidades</h2>
+<div class="form-grid torn-inputs">
+<label class="field">Capital disponível (T$)<input id="capital" type="number" min="0" value="5000000" step="10000"></label>
+<label class="field">Categoria<select id="category"><option value="all">Mercado geral — amostra variada</option><option value="Plushie">Pelúcias</option><option value="Flower">Flores</option><option value="Drug">Drogas do jogo</option><option value="Medical">Itens médicos</option><option value="Booster">Boosters</option><option value="Candy">Doces</option><option value="Alcohol">Bebidas alcoólicas</option><option value="Energy Drink">Energéticos</option><option value="Material">Materiais</option><option value="Supply Pack">Pacotes</option><option value="Other">Outros</option></select></label>
+<label class="field">Quantidade de itens por pesquisa<select id="scanCount"><option value="10">10 itens — rápida</option><option value="15" selected>15 itens — equilibrada</option><option value="30">30 itens — ampla</option></select></label>
+<label class="field">Margem líquida mínima (%)<input id="minMargin" type="number" min="0" max="99" step="0.5" value="2"></label>
+<label class="field">Taxa sobre venda no Item Market (%)<input id="fee" type="number" min="0" max="20" step="0.5" value="5"></label>
+<label class="field">Quantidade máxima por oportunidade<input id="maxUnits" type="number" min="1" max="1000" value="10"></label>
+<label class="field">Idade máxima da cotação<select id="maxAge"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="120">120 min</option></select></label>
+<label class="field">Ordenar por<select id="sort"><option value="profit">Maior lucro hipotético</option><option value="margin">Maior margem líquida</option><option value="unit">Maior lucro por unidade</option><option value="age">Preços mais recentes</option></select></label>
 </div>
-<div class="row" style="margin-top:18px"><button id="scan" type="button">Consultar preços agora ↻</button><span id="scanState" class="statline">Aguardando pesquisa manual.</span></div>
-<div id="marketNotice" class="notice" role="status" aria-live="polite">A API informa anúncios de venda. Apenas encontrar preços diferentes não demonstra uma arbitragem realizável.</div>
-<div id="metrics" class="grid" aria-live="polite"></div>
-<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Preço anunciado (T$)</th><th>Quantidade</th><th>Valor total anunciado (T$)</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="muted">Digite uma chave e consulte um item.</td></tr></tbody></table></div>
-<p id="summary" class="small muted"></p>
-<p class="small muted">Os preços são ofertas de vendedores, não histórico de negócios concluídos. A API pode usar cache; não há atualização periódica nem garantia de liquidez ou lucro. Não armazenamos um histórico automático de consultas.</p>
+<label class="field" style="margin-top:13px">Opcional: IDs ou nomes de itens para investigar especificamente
+<input id="custom" type="text" placeholder="Ex.: 206, 258 ou parte do nome (separados por vírgulas)" maxlength="400">
+</label>
+<p class="small muted">Sem informar itens, o programa consulta um conjunto de até 30 produtos do catálogo oficial, distribuídos por categoria e faixa de preço. Isso é uma <strong>amostra do mercado</strong>, não uma varredura de todos os itens. A circulação informada pela API não mede a velocidade das vendas.</p>
+<div class="torn-actions" style="margin-top:14px">
+<button type="button" id="scan">Pesquisar oportunidades agora ↻</button>
+<button type="button" id="csv" disabled style="color:var(--mint);background:transparent">Exportar CSV</button>
+<span id="scanState" class="statline">Aguardando pesquisa manual.</span>
+</div>
+<div class="notice" role="status" id="marketNotice" aria-live="polite">Pesquisas somente ao clicar. O mercado do Torn publica cotações com cache global de aproximadamente uma hora; novas consultas podem retornar os mesmos anúncios.</div>
 </section>
-</main>
-<footer class="foot">Ferramenta independente de estudo. Requisições em tempo real apenas após clique. Projeto sem afiliação com Torn.</footer>
-<script type="module" src="./assets/js/torn.mjs?v=1"></script>
+<section class="panel" id="results">
+<div class="tag">03 / RANKING</div><h2>Possíveis oportunidades de revenda</h2>
+<div class="torn-metrics" id="metrics">
+<article class="panel"><span class="small muted">Itens pesquisados</span><strong id="checked">—</strong></article>
+<article class="panel"><span class="small muted">Com margem positiva</span><strong id="found">—</strong></article>
+<article class="panel"><span class="small muted">Melhor lucro hipotético</span><strong id="best">—</strong></article>
+</div>
+<div class="table-wrap"><table class="torn-table"><thead><tr><th>Item</th><th>Comprar T$</th><th>Revenda alvo T$</th><th>Média API T$</th><th>Margem líq.</th><th>Qtd. possível</th><th>Lucro hipotético</th><th>Risco</th></tr></thead>
+<tbody id="opportunities"><tr><td colspan="8" class="muted">Clique em Pesquisar oportunidades agora.</td></tr></tbody></table></div>
+<p class="small muted" id="summary"></p>
+<p class="small muted">O preço de revenda é limitado pelo menor valor entre a média da API e a próxima faixa competitiva de anúncios, descontando um pequeno valor para ficar abaixo dela. <strong>Não é uma ordem de compra existente.</strong> O lucro pressupõe revenda integral. Quanto mais concorrentes e maior o cache, maior o risco.</p>
+</section>
+<section class="panel"><h2>4. Conferir anúncios de um item</h2>
+<p class="small muted">Clique no nome de um item no ranking ou consulte um ID específico para verificar os anúncios que deram origem à estimativa.</p>
+<div class="torn-actions"><label class="field" style="max-width:200px">ID do item<input id="itemId" type="number" min="1" max="9999999" value="206"></label><button id="single" type="button">Consultar este item</button></div>
+<div id="itemDetail" class="small muted" style="margin-top:12px">Nenhum item selecionado.</div>
+<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Preço anunciado T$</th><th>Unidades</th><th>Valor anunciado T$</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="muted">Aguardando item.</td></tr></tbody></table></div>
+</section>
+<section class="panel"><h2>Como interpretar?</h2><p>Uma oferta barata pode ser uma oportunidade, mas também pode ser um item parado, uma cotação atrasada ou um equipamento com atributos diferentes. Esta versão <strong>exclui equipamentos com atributos individuais</strong> e considera apenas anúncios comparáveis. Consulte o preço real no jogo antes de comprar e lembre-se da taxa normal de 5% na venda pelo Item Market.</p>
+<p><a href="https://wiki.torn.com/wiki/Item_Market" target="_blank" rel="noopener">Regras oficiais do Item Market →</a></p></section>
+</main><footer class="foot">Independente, sem afiliação com Torn. Consultas manuais à API oficial. Nenhuma transação executada.</footer>
+<script type="module" src="./assets/js/torn.mjs?v=2"></script>
 </body></html>
