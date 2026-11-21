@@ -5,7 +5,7 @@ const fmt=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d,min
 const num=id=>Number($(id).value)||0;
 const hubs={jita:{region:10000002,station:60003760},amarr:{region:10000043,station:60008494},dodixie:{region:10000032,station:60011866},rens:{region:10000030,station:60004588},hek:{region:10000042,station:60005686}};
 const minerals=[[34,'Tritanium'],[35,'Pyerite'],[36,'Mexallon'],[37,'Isogen'],[38,'Nocxium'],[39,'Zydrine'],[40,'Megacyte']];
-const diverse=[[44992,'PLEX'],[40520,'Large Skill Injector'],[40519,'Skill Extractor'],[28668,'Nanite Repair Paste'],[23009,'Caldari Navy Antimatter Charge S']];
+const diverse=[[44992,'PLEX'],[40520,'Large Skill Injector'],[40519,'Skill Extractor'],[28668,'Nanite Repair Paste'],[23009,'Caldari Navy Antimatter Charge S'],[2456,'Hobgoblin II'],[2488,'Warrior II'],[2048,'Damage Control II'],[1319,'Expanded Cargohold II'],[380,'Small Shield Extender II'],[210,'Scourge Light Missile'],[24495,'Scourge Fury Light Missile'],[24501,'Scourge Precision Light Missile']];
 let eveData=[],eveScanned=0,eveBooks=[],eveStation=null;
 const gate=5*60*1000;
 let lastKey='',lastAt=0,latestRows=[];
