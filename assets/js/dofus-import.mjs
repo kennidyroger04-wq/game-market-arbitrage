@@ -144,9 +144,9 @@ function display(){
  }
  rank.sort((a,b)=>b.profit-a.profit);
  $('importRows').innerHTML=rank.length?rank.slice(0,100).map(r=>'<tr><td>'+esc(r.name)+'</td><td>x'+r.buySize+'</td><td>x'+r.sellSize+'</td><td>'+fmt(r.required)+'</td><td class="'+(r.profit>0?'positive':'negative')+'">'+fmt(r.profit)+' K</td><td class="'+(r.roi>0?'positive':'negative')+'">'+fmt(r.roi)+'%</td><td>'+esc(r.age)+'</td></tr>').join(''):'<tr><td colspan="7" class="muted">Sem oportunidades com versão, servidor, datas, capital e margem selecionados. Não misturamos mercados.</td></tr>';
- $('importStatus').className='notice'+(rank.length?' ok':'');
+ $('importStatus').className='notice'+(rank.length&&!loaded.historical?' ok':'');
  const st=loaded.stats;
- $('importStatus').textContent='Fonte: '+loaded.source+' · '+loaded.items.length+' itens reconhecidos · '+rank.length+' combinações (até 100 exibidas). Excluídas: '+counters.stale+' cotações antigas, '+counters.outside+' fora do período, '+counters.undated+' sem data, '+st.unusable+' linhas ilegíveis, '+st.differentServer+' outros servidores, '+st.missingServer+' sem servidor e '+st.differentVersion+' versões diferentes, '+st.missingVersion+' sem versão. São hipóteses, não vendas confirmadas.';
+ $('importStatus').textContent=(loaded.historical?'ATENÇÃO: PREÇOS HISTÓRICOS DE OUTUBRO/2026, NÃO SÃO COTAÇÕES ATUAIS. Reconfirme no HDV antes de operar. ':'')+'Fonte: '+loaded.source+' · '+loaded.items.length+' itens reconhecidos · '+rank.length+' combinações (até 100 exibidas). Excluídas: '+counters.stale+' cotações antigas, '+counters.outside+' fora do período, '+counters.undated+' sem data, '+st.unusable+' linhas ilegíveis, '+st.differentServer+' outros servidores, '+st.missingServer+' sem servidor e '+st.differentVersion+' versões diferentes, '+st.missingVersion+' sem versão. São hipóteses, não vendas confirmadas.';
 }
 async function importFile(){
  const file=$('mizanFile').files?.[0];
@@ -162,9 +162,34 @@ async function importFile(){
   if(!Array.isArray(parsed)||!parsed.length)throw new Error('Não encontrei registros de preços no arquivo');
   const {items,stats}=normalizeEntries(parsed,server,version,source,$('assumeServer').checked,$('assumeVersion').checked);
   if(!items.length)throw new Error('Não consegui identificar itens e preços. Precisamos conferir as colunas do arquivo exportado; nenhum preço foi inventado.');
-  loaded={items,stats,source};display();
+  loaded={items,stats,source,historical:parsed.some(x=>String(best(x,['data_quality'])).toLowerCase()==='historical_not_current')};display();
  }catch(e){$('importStatus').textContent='Não foi possível importar: '+e.message;}
  finally{$('importFile').disabled=false;}
 }
+async function loadTalKashaArchive(){
+ const button=$('loadTalKasha');
+ button.disabled=true;
+ $('importStatus').textContent='Lendo arquivo histórico Tal Kasha incluído no repositório…';
+ try{
+  const response=await fetch('./data/dofus/tal-kasha-mizanbot-2026-10.csv?v=1',{cache:'no-store'});
+  if(!response.ok)throw new Error('Arquivo CSV não disponível: HTTP '+response.status);
+  const records=parseCSV(await response.text());
+  if(records.length!==7)throw new Error('Arquivo histórico inesperado: esperado 7 itens, recebidos '+records.length);
+  const {items,stats}=normalizeEntries(records,'Tal Kasha','dofus3','mizanbot',false,false);
+  if(items.length!==7||stats.differentServer||stats.differentVersion||stats.missingServer||stats.missingVersion){
+   throw new Error('Validação de servidor/versão falhou. Arquivo descartado.');
+  }
+  $('server').value='Tal Kasha';$('version').value='dofus3';$('importSource').value='mizanbot';
+  $('dateFrom').value='';$('dateTo').value='';
+  $('maxAge').value='1440';
+  $('allowUndated').checked=false;
+  loaded={items,stats,source:'MizanBot · Tal Kasha (22–23/10/2026)',historical:true};
+  display();
+ }catch(e){
+  $('importStatus').className='notice';
+  $('importStatus').textContent='Não foi possível carregar o arquivo Tal Kasha: '+e.message;
+ }finally{button.disabled=false;}
+}
+$('loadTalKasha').addEventListener('click',loadTalKashaArchive);
 $('importFile').addEventListener('click',importFile);
 for(const id of ['maxAge','importMargin','importOnlyPositive','allowUndated','capital','tax','maxAds','dateFrom','dateTo','version','server'])$(id)?.addEventListener('input',display);
