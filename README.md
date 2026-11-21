@@ -1,25 +1,39 @@
 # Game Market Arbitrage — OSRS
 
-Analisador **independente, gratuito e de código aberto** para flips no Grand Exchange de Old School RuneScape. Projeto iniciado para expandir a outros mercados (EVE Online etc.).
+Painel em português, otimizado para celular, para analisar flips no Grand Exchange de Old School RuneScape.
 
-O site funciona no **GitHub Pages** e no celular. Não acessa credenciais nem executa ordens dentro de jogos.
+## Busca direta pelo navegador (SEM GitHub Actions)
 
-**Como publicar:** Settings → Pages → Build and deployment → Source: **GitHub Actions**; depois Actions → **Atualizar OSRS e publicar** → Run workflow. O endereço será https://kennidyroger04-wq.github.io/game-market-arbitrage/.
+- Os cinco endpoints públicos da OSRS Wiki Prices API v2 (mapping, latest, 5m, 1h, 24h) são consultados ao abrir a página e pelo botão **Pesquisar preços agora**.
+- Filtros e busca de itens usam informações já carregadas, sem novas requisições.
+- Atualizações limitadas a uma consulta por minuto depois de sucesso; aba fechada não faz consultas.
+- **Não há agendamento de GitHub Actions** nem servidor próprio. O arquivo de snapshot não é mais necessário.
+- Quando a API falha, o painel mostra erro. Dados de demonstração são fictícios e só aparecem se o usuário escolher.
 
-**Dados:** API pública [OSRS Wiki Real-Time Prices](https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices), versão v2, coletada em lote por GitHub Actions. Os campos high/low refletem *últimas transações*, não livro de ordens ou oferta garantida. Operar perto do low/high exige **duas ordens limitadas**, que podem levar tempo para preencher ou não preencher.
+API pública: https://prices.runescape.wiki/api/v2/osrs
 
-**Cálculos:** diferença de high − low, menos imposto de venda de 2% arredondado para baixo com teto de 5 milhões GP/unidade; limites de compra de 4 horas, capital e estimativa conservadora baseada em volume. Esse cálculo não prediz uma execução nem garante retorno. Taxa cobrada conservadoramente até em itens eventualmente isentos.
+## Publicação com GitHub Pages
 
-**Filtros:** somente F2P, orçamento GP, margem líquida, volume de 5 minutos e 24 horas, idade separada dos preços, busca, favoritos e exportação CSV. Registro manual de trades fica apenas no navegador.
+Em Settings → Pages selecione **Deploy from a branch**, branch **main**, pasta **/(root)**.
+O site funciona sem build e sem dependências externas. URL: https://kennidyroger04-wq.github.io/game-market-arbitrage/
 
-**Implementação:** HTML/CSS/JavaScript sem serviços pagos, coletor Python padrão e workflow que testa, busca dados e publica Pages a cada hora, sujeito a atrasos do GitHub.
+O workflow .github/workflows/deploy.yml é opcional, **manual apenas para testes**, e não atualiza nem publica dados. Em repositório público, os runners padrão do GitHub Actions são gratuitos conforme documentação do GitHub, mas não são usados nas pesquisas.
 
-**Restrições:** contas novas podem ter restrições no Grand Exchange; F2P possui três ofertas simultâneas. Comprar GP ou vender GP por dinheiro real fora dos mecanismos oficiais viola as regras da Jagex. O programa não representa lucro em reais nem recomenda RMT.
+## Funcionalidades
 
-## Testes
-```sh
-node --test tests/*.test.mjs
-python -m unittest discover -s tests -p 'test_*.py'
-```
+- Ranking de flips via ordens limitadas, não garantia de execução instantânea.
+- Filtros F2P, capital, margem, volume (5min e 24h), idade das transações, limites de compra e taxas.
+- Simulador, favoritos, CSV e registro manual de trades com armazenamento local.
+- Imposto estimado: 2% por unidade, arredondado para baixo e limitado a 5 milhões GP; itens isentos podem ter margem real superior.
+- Quantidade máxima heurística: mínimo entre capital, limite de compra por 4h e 1% do volume histórico de 24h.
 
-Licença: MIT (ver LICENSE).
+## Rodar testes localmente
+
+    node --test tests/*.test.mjs
+    python -m unittest discover -s tests -p 'test_*.py'
+
+## Avisos
+
+Dados high/low correspondem às últimas transações e NÃO a ordens abertas. Comprar no low e vender no high exige duas ordens limitadas. Pode não haver compradores no preço desejado. GP não representa dinheiro real. Venda de GP por reais fora dos mecanismos permitidos viola as regras da Jagex.
+
+Licença MIT.
