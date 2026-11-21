@@ -2,6 +2,40 @@
 const N=x=>Number.isFinite(Number(x))?Number(x):0;
 export const TORN_GROUPS=['Plushie','Flower','Drug','Medical','Booster','Candy','Alcohol','Energy Drink','Material','Supply Pack','Other'];
 const EXCLUDED=new Set(['Weapon','Armor','Car','Clothing','Jewelry','Collectible']);
+
+/** IDs comunitários públicos para testes quando a chave customizada permite apenas market/itemmarket.
+ * Esta lista é uma amostra fixa, NÃO contém preços, quantidades, médias ou status de mercado.
+ * Fonte: https://www.torn.com/forums.php?f=63&t=16478083
+ */
+const FLOWERS=[282,617,271,277,263,260,272,267,264,276,385];
+const PLUSHIES=[384,273,258,215,281,269,266,274,268,186,618,187,261];
+export const FALLBACK_WATCHLIST=[
+ ...FLOWERS.map(id=>({id,name:'Flor #'+id,type:'Flower'})),
+ ...PLUSHIES.map(id=>({id,name:id===258?'Chamois Plushie':'Pelúcia #'+id,type:'Plushie'})),
+ {id:206,name:'Xanax',type:'Drug'}
+];
+/** Seleciona somente IDs existentes na lista ou informados pelo jogador; não precisa da seleção torn/items. */
+export function fallbackScanItems({category='all',count=15,query=''}={}){
+ const limit=Math.max(1,Math.min(30,Math.floor(N(count)||15)));
+ const q=String(query||'').trim().toLowerCase();
+ if(q){
+  const parts=q.split(/[;,\n]+/).map(x=>x.trim()).filter(Boolean);
+  const numberIds=parts.filter(x=>/^\d+$/.test(x)).map(Number).filter(x=>Number.isSafeInteger(x)&&x>0);
+  const result=numberIds.map(id=>FALLBACK_WATCHLIST.find(x=>x.id===id)||{id,name:'Item #'+id,type:'Other'});
+  const names=FALLBACK_WATCHLIST.filter(x=>parts.some(p=>!/^\d+$/.test(p)&&x.name.toLowerCase().includes(p)));
+  const seen=new Set();
+  return [...result,...names].filter(x=>{if(seen.has(x.id))return false;seen.add(x.id);return true;}).slice(0,limit);
+ }
+ const list=category==='all'?FALLBACK_WATCHLIST:FALLBACK_WATCHLIST.filter(x=>x.type===category);
+ if(category!=='all')return list.slice(0,limit);
+ const groups=[FLOWERS.map(id=>FALLBACK_WATCHLIST.find(x=>x.id===id)),PLUSHIES.map(id=>FALLBACK_WATCHLIST.find(x=>x.id===id)),FALLBACK_WATCHLIST.filter(x=>x.type==='Drug')];
+ const mixed=[];
+ while(mixed.length<limit&&groups.some(g=>g.length)){
+  for(const group of groups){if(group.length&&mixed.length<limit)mixed.push(group.shift());}
+ }
+ return mixed;
+}
+
 export function normalizeCatalog(payload){
  const data=Array.isArray(payload?.items)?payload.items:[];
  return data.filter(x=>x&&Number.isSafeInteger(Number(x.id))&&Number(x.id)>0)
