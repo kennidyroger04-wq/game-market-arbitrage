@@ -25,7 +25,8 @@ const serverOf=x=>normalize(x).replace('dakkal','dakal');
 const parsableDate=x=>{
  if(x==null||x==='')return null;
  if(typeof x==='number'){const ms=x<1e11?x*1000:x;return Number.isFinite(ms)?ms:null;}
- const candidate=Date.parse(String(x));return Number.isFinite(candidate)?candidate:null;
+ const raw=String(x).trim(),iso=/^\d{4}-\d\d-\d\d[T ]\d\d:\d\d/.test(raw)&&!/(Z|[+-]\d\d:?\d\d)$/.test(raw)?raw.replace(' ','T')+'Z':raw;
+ const candidate=Date.parse(iso);return Number.isFinite(candidate)?candidate:null;
 };
 function parseCSV(input){
  const line=input.replace(/^\uFEFF/,'').split(/\r?\n/,1)[0]||'';
@@ -151,18 +152,19 @@ async function importFile(){
  const file=$('mizanFile').files?.[0];
  if(!file){$('importStatus').textContent='Selecione um arquivo CSV ou JSON exportado antes de importar.';return;}
  if(file.size>15_000_000){$('importStatus').textContent='Arquivo acima de 15 MB. Exporte um conjunto menor.';return;}
- if($('version').value!=='dofus3'){$('importStatus').textContent='Os dados públicos do MizanBot são de DOFUS 3. Selecione DOFUS 3 para importar.';return;}
+ const source=$('importSource').value,version=$('version').value;
+ if(source!=='generic'&&version!=='dofus3'){$('importStatus').textContent='Esta fonte é de DOFUS 3. Para Retro e Touch, escolha arquivo genérico com versão conhecida.';return;}
  const server=$('server').value.trim();
  if(!server){$('importStatus').textContent='Informe seu servidor antes de importar, para evitar comparação entre mundos diferentes.';return;}
  $('importFile').disabled=true;
  try{
   const content=await file.text(),parsed=/\.json$/i.test(file.name)||content.trim().startsWith('{')||content.trim().startsWith('[')?rowsOf(JSON.parse(content)):parseCSV(content);
   if(!Array.isArray(parsed)||!parsed.length)throw new Error('Não encontrei registros de preços no arquivo');
-  const {items,stats}=normalizeEntries(parsed,server);
+  const {items,stats}=normalizeEntries(parsed,server,version,source,$('assumeServer').checked,$('assumeVersion').checked);
   if(!items.length)throw new Error('Não consegui identificar itens e preços. Precisamos conferir as colunas do arquivo exportado; nenhum preço foi inventado.');
-  loaded={items,stats};display();
+  loaded={items,stats,source};display();
  }catch(e){$('importStatus').textContent='Não foi possível importar: '+e.message;}
  finally{$('importFile').disabled=false;}
 }
 $('importFile').addEventListener('click',importFile);
-for(const id of ['maxAge','importMargin','importOnlyPositive','allowUndated','capital','tax','maxAds'])$(id)?.addEventListener('input',display);
+for(const id of ['maxAge','importMargin','importOnlyPositive','allowUndated','capital','tax','maxAds','dateFrom','dateTo','version','server'])$(id)?.addEventListener('input',display);
