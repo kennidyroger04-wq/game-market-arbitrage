@@ -107,30 +107,45 @@ let loaded=null;
 const fmt=x=>Number(x).toLocaleString('pt-BR',{maximumFractionDigits:1});
 function display(){
  if(!loaded)return;
- const cap=Number($('capital').value)||0,tax=Number($('tax').value)||0,maxAds=Number($('maxAds').value)||20,ageHours=Number($('maxAge').value)||24,margin=Number($('importMargin').value)||0,onlyPositive=$('importOnlyPositive').checked,allowUndated=$('allowUndated')?.checked||false;
- const now=Date.now(),rank=[],counters={stale:0,undated:0,positive:0};
+ const cap=Number($('capital').value)||0,tax=Number($('tax').value)||0,maxAds=Number($('maxAds').value)||20;
+ const ageHours=Number($('maxAge').value)||24,margin=Number($('importMargin').value)||0;
+ const onlyPositive=$('importOnlyPositive').checked,allowUndated=$('allowUndated').checked;
+ const fromText=$('dateFrom').value,toText=$('dateTo').value;
+ const from=fromText?new Date(fromText+'T00:00:00').getTime():null;
+ const to=toText?new Date(toText+'T23:59:59.999').getTime():null;
+ if(from!==null&&to!==null&&from>to){$('importStatus').textContent='Período inválido: data inicial posterior à data final.';return;}
+ const now=Date.now(),rank=[],counters={stale:0,undated:0,outside:0};
+ const server=$('server').value.trim(),version=$('version').value;
  for(const row of loaded.items){
+  if(serverOf(row.server)!==serverOf(server)||row.version!==version)continue;
   const prices={},ages={};
   for(const n of sizes){
-   const stamp=row.dates[n];
    if(!row.prices[n])continue;
-   if(!stamp){counters.undated++;if(!allowUndated)continue;ages[n]=null;}
-   else{const age=(now-stamp)/3600000;if(age>ageHours||age< -2){counters.stale++;continue;}ages[n]=age;}
+   const stamp=row.dates[n];
+   if(!stamp){
+    counters.undated++;
+    if(!allowUndated||from!==null||to!==null)continue;
+    ages[n]=null;
+   }else{
+    if(from!==null&&stamp<from||to!==null&&stamp>to){counters.outside++;continue;}
+    const age=(now-stamp)/3600000;
+    if(age>ageHours||age< -2){counters.stale++;continue;}
+    ages[n]=age;
+   }
    prices[n]=row.prices[n];
   }
-  const opportunities=computeLots(prices,cap,tax,maxAds);
-  for(const op of opportunities){
+  for(const op of computeLots(prices,cap,tax,maxAds)){
    if(op.roi<margin||onlyPositive&&op.profit<=0)continue;
-   if(op.profit>0)counters.positive++;
    const ago=Math.max(ages[op.buySize]??0,ages[op.sellSize]??0);
    const noDate=ages[op.buySize]===null||ages[op.sellSize]===null;
-   rank.push({...op,name:row.name,age:noDate?'sem data':fmt(ago)+'h'});
+   rank.push({...op,name:row.name,source:row.source,age:noDate?'sem data':fmt(ago)+'h'});
   }
  }
  rank.sort((a,b)=>b.profit-a.profit);
- $('importRows').innerHTML=rank.length?rank.slice(0,100).map(r=>'<tr><td>'+esc(r.name)+'</td><td>x'+r.buySize+'</td><td>x'+r.sellSize+'</td><td>'+fmt(r.required)+'</td><td class="'+(r.profit>0?'positive':'negative')+'">'+fmt(r.profit)+' K</td><td class="'+(r.roi>0?'positive':'negative')+'">'+fmt(r.roi)+'%</td><td>'+esc(r.age)+'</td></tr>').join(''):'<tr><td colspan="7" class="muted">Nenhuma arbitragem atende aos filtros de capital, margem e idade. Confira os preços e a estrutura do arquivo.</td></tr>';
+ $('importRows').innerHTML=rank.length?rank.slice(0,100).map(r=>'<tr><td>'+esc(r.name)+'</td><td>x'+r.buySize+'</td><td>x'+r.sellSize+'</td><td>'+fmt(r.required)+'</td><td class="'+(r.profit>0?'positive':'negative')+'">'+fmt(r.profit)+' K</td><td class="'+(r.roi>0?'positive':'negative')+'">'+fmt(r.roi)+'%</td><td>'+esc(r.age)+'</td></tr>').join(''):'<tr><td colspan="7" class="muted">Sem oportunidades com versão, servidor, datas, capital e margem selecionados. Não misturamos mercados.</td></tr>';
  $('importStatus').className='notice'+(rank.length?' ok':'');
- $('importStatus').textContent='Importação local: '+loaded.items.length+' itens, '+rank.length+' combinações exibíveis (máximo de 100 na tabela). Campos de preço antigos excluídos: '+counters.stale+'; sem data: '+counters.undated+'. Linhas sem preços legíveis: '+loaded.stats.unusable+'. Servidor diferente: '+loaded.stats.differentServer+'.'+(loaded.stats.missingServer?' '+loaded.stats.missingServer+' registro(s) não identificam o servidor; foi usado o servidor escolhido por você.':'')+' Resultados são hipóteses, não vendas confirmadas.';
+ const st=loaded.stats;
+ $('importStatus').textContent='Fonte: '+loaded.source+' · '+loaded.items.length+' itens reconhecidos · '+rank.length+' combinações (até 100 exibidas). Excluídas: '+counters.stale+' cotações antigas, '+counters.outside+' fora do período, '+counters.undated+' sem data, '+st.unusable+' linhas ilegíveis, '+st.differentServer+' outros servidores, '+st.missingServer+' sem servidor e '+st.differentVersion+' versões diferentes, '+st.missingVersion+' sem versão. São hipóteses, não vendas confirmadas.';
 }
 async function importFile(){
  const file=$('mizanFile').files?.[0];
