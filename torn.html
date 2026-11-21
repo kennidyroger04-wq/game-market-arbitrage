@@ -1,1 +1,45 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Torn | Game Market Arbitrage</title><link rel="stylesheet" href="./assets/markets.css?v=1"></head><body><header><a class="logo" href="./markets.html">G↗ GAME MARKET</a><nav><a href="./index.html">OSRS</a><a href="./markets.html">Jogos</a><a href="./eve.html">EVE</a><a href="./gw2.html">GW2</a><a href="./torn.html" aria-current="page">Torn</a></nav></header><main><div class="tag">TORN · API OFICIAL COM CHAVE</div><h1>Mercado Torn.</h1><p class="lead">A API oficial v2 disponibiliza itens do Item Market em <code>/v2/market/{id}/itemmarket</code>, mas requer uma chave de API do próprio jogador.</p><section class="panel"><h2>Estado da integração</h2><div class="notice">Página informativa: não está realizando consultas ainda. Não exibimos preços de demonstração como se fossem reais.</div><p>Para a próxima etapa, precisaremos confirmar as permissões, o formato e as restrições de uso da API. A chave não deve ser incluída em código público, parâmetros compartilhados ou armazenamentos sem proteção.</p><p><a href="https://www.torn.com/api.html" target="_blank" rel="noopener">Documentação oficial da API Torn →</a></p></section><section class="panel"><h2>O que já podemos comparar?</h2><p>Por enquanto, EVE e GW2 podem consultar livros públicos de ordens sem credenciais. <a href="./markets.html">Voltar às outras páginas</a>.</p></section></main><footer class="foot">Projeto independente. Não pedimos sua chave de API nesta versão.</footer></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#071922">
+<title>Torn | Game Market Arbitrage</title>
+<link rel="stylesheet" href="./assets/markets.css?v=1">
+</head>
+<body>
+<header><a class="logo" href="./markets.html">G↗ GAME MARKET</a><nav><a href="./index.html">OSRS</a><a href="./markets.html">Jogos</a><a href="./eve.html">EVE</a><a href="./gw2.html">GW2</a><a href="./dofus.html">DOFUS</a><a href="./torn.html" aria-current="page">Torn</a></nav></header>
+<main>
+<div class="tag">TORN · API V2 OFICIAL · CONSULTAS MANUAIS</div>
+<h1>Mercado Torn.</h1>
+<p class="lead">Use uma chave de leitura do seu próprio jogador para consultar anúncios do Item Market. O analisador não compra nem vende itens e nunca envia sua chave para o GitHub.</p>
+<section class="panel">
+<h2>1. Criar sua chave (precisa de conta no jogo)</h2>
+<p>O cadastro no Torn é gratuito. Depois de entrar, crie uma chave <strong>Custom</strong> liberando somente <strong>market → itemmarket</strong>. Também é possível utilizar uma chave <strong>Public Only</strong>.</p>
+<p class="row"><a href="https://www.torn.com/" target="_blank" rel="noopener noreferrer">Criar conta Torn →</a><a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener noreferrer">Criar chave na conta →</a><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Documentação oficial →</a></p>
+</section>
+<section class="panel">
+<h2>2. Sua chave de API</h2>
+<div class="form-grid"><label class="field">Chave API Torn (16 caracteres)
+<input id="tornApiKey" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Cole sua chave aqui" maxlength="64" aria-describedby="keyPrivacy">
+</label></div>
+<p id="keyPrivacy" class="small muted">A chave permanece apenas neste campo enquanto a página estiver aberta; não usamos localStorage, sessionStorage, cookies ou parâmetros na URL. Nas consultas, é enviada <strong>somente à API oficial do Torn</strong> no cabeçalho Authorization. Não compartilhe sua chave por chat ou capturas de tela. Ao atualizar ou fechar a página, será necessário digitá-la novamente.</p>
+<div class="row"><button type="button" id="testKey">Testar chave</button><button type="button" id="clearKey" style="background:transparent;color:var(--mint)">Limpar chave</button><span id="keyState" class="statline">Nenhuma chave testada.</span></div>
+<div id="keyNotice" class="notice" role="status" aria-live="polite">Sem chave, nenhuma consulta será enviada.</div>
+</section>
+<section class="panel">
+<h2>3. Consultar anúncios por item</h2>
+<div class="form-grid">
+<label class="field">ID do item<input id="itemId" type="number" value="206" min="1" max="9999999" step="1" inputmode="numeric"></label>
+<label class="field">Quantidade máxima de anúncios para exibição<select id="rowLimit"><option value="10">10 anúncios</option><option value="25" selected>25 anúncios</option><option value="50">50 anúncios</option></select></label>
+</div>
+<div class="row" style="margin-top:18px"><button id="scan" type="button">Consultar preços agora ↻</button><span id="scanState" class="statline">Aguardando pesquisa manual.</span></div>
+<div id="marketNotice" class="notice" role="status" aria-live="polite">A API informa anúncios de venda. Apenas encontrar preços diferentes não demonstra uma arbitragem realizável.</div>
+<div id="metrics" class="grid" aria-live="polite"></div>
+<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Preço anunciado (T$)</th><th>Quantidade</th><th>Valor total anunciado (T$)</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="muted">Digite uma chave e consulte um item.</td></tr></tbody></table></div>
+<p id="summary" class="small muted"></p>
+<p class="small muted">Os preços são ofertas de vendedores, não histórico de negócios concluídos. A API pode usar cache; não há atualização periódica nem garantia de liquidez ou lucro. Não armazenamos um histórico automático de consultas.</p>
+</section>
+</main>
+<footer class="foot">Ferramenta independente de estudo. Requisições em tempo real apenas após clique. Projeto sem afiliação com Torn.</footer>
+<script type="module" src="./assets/js/torn.mjs?v=1"></script>
+</body></html>
