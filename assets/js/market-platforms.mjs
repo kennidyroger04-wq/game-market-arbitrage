@@ -9,10 +9,18 @@ export function eveOpportunity(orders,stationId,capital=10000000,tax=7.5,broker=
   const bid=valid(buys[0].price),ask=valid(sells[0].price);
   const bidDepth=buys.filter(o=>valid(o.price)===bid).reduce((s,o)=>s+valid(o.volume_remain),0);
   const askDepth=sells.filter(o=>valid(o.price)===ask).reduce((s,o)=>s+valid(o.volume_remain),0);
-  const buyCost=bid*(1+Math.max(0,valid(broker))/100);
-  const unitProfit=ask*(1-(Math.max(0,valid(tax))+Math.max(0,valid(broker)))/100)-buyCost;
-  const quantity=Math.max(0,Math.floor(Math.min(Math.floor(Math.max(0,valid(capital))/buyCost),bidDepth,askDepth)));
-  return {bid,ask,bidDepth,askDepth,quantity,unitProfit,margin:buyCost>0?unitProfit/buyCost*100:0,totalProfit:quantity*unitProfit,orderCount:inStation.length};
+  const rate=Math.max(0,valid(broker))/100, available=Math.max(0,valid(capital));
+  const capQty=Math.floor(available/(bid*(1+rate)));
+  let quantity=Math.max(0,Math.floor(Math.min(capQty,bidDepth,askDepth)));
+  // Em ordens pequenas a taxa minima de corretagem altera o resultado real.
+  while(quantity>0&&bid*quantity+Math.max(100,bid*quantity*rate)>available)quantity--;
+  const buyFee=quantity?Math.max(100,bid*quantity*rate):0;
+  const sellFee=quantity?Math.max(100,ask*quantity*rate):0;
+  const saleTax=quantity*ask*Math.max(0,valid(tax))/100;
+  const totalProfit=quantity*(ask-bid)-saleTax-buyFee-sellFee;
+  const unitProfit=quantity?totalProfit/quantity:0;
+  const margin=quantity?totalProfit/(quantity*bid+buyFee)*100:0;
+  return {bid,ask,bidDepth,askDepth,quantity,unitProfit,margin,totalProfit,orderCount:inStation.length};
 }
 export function gw2Opportunity(p,capital=50000){
   const bid=valid(p?.buys?.unit_price),ask=valid(p?.sells?.unit_price);
