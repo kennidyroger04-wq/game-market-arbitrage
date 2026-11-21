@@ -1,0 +1,58 @@
+name: Atualizar OSRS e publicar
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/deploy.yml'
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar cálculos e API parser
+        run: |
+          node --test tests/*.test.mjs
+          python -m unittest discover -s tests -p 'test_*.py'
+      - name: Coletar snapshot OSRS Wiki API v2
+        run: python scripts/build_snapshot.py
+      - name: Preparar conteúdo estático
+        run: |
+          mkdir -p dist/assets/js dist/data
+          cp index.html dist/
+          cp assets/style.css dist/assets/
+          cp assets/js/*.mjs dist/assets/js/
+          cp data/osrs-snapshot.json dist/data/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
