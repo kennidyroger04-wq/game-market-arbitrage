@@ -1,4 +1,4 @@
-import {normalizeCatalog,chooseScanItems,analyzeItemMarket,csvTorn} from './torn-market.mjs?v=2';
+import {normalizeCatalog,chooseScanItems,fallbackScanItems,analyzeItemMarket,csvTorn} from './torn-market.mjs?v=3';
 /** Torn API v2 - nenhuma pesquisa agendada, chave somente em memória do campo. */
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -32,7 +32,13 @@ async function api(path){
   const data=await response.json();
   if(data?.error){
    const n=Number(data.error.code);
-   throw new Error('API Torn: erro'+(Number.isFinite(n)?' código '+n:'')+' — confira permissões, cache e item.');
+   if(n===16){
+    const location=path.startsWith('torn/items')?'Torn → Items':path.includes('/itemmarket')?'Market → Item Market':'a seleção consultada';
+    const error=new Error('Permissão insuficiente para '+location+' (erro 16). Configure a chave Custom conforme indicado na página.');
+    error.code=16;error.apiPath=path;throw error;
+   }
+   const error=new Error('API Torn: erro'+(Number.isFinite(n)?' código '+n:'')+' — confira permissões e item.');
+   error.code=n;error.apiPath=path;throw error;
   }
   return data;
  }catch(e){
@@ -50,7 +56,7 @@ async function run(task){
 const marketPath=id=>'market/'+id+'/itemmarket?limit=100&offset=0';
 async function getMarket(id){
  const saved=snapshots.get(id);
- if(saved&&Date.now()-saved.fetched<55*60*1000)return saved.payload;
+ if(saved&&Date.now()-saved.fetched<60000)return saved.payload;
  const payload=await api(marketPath(id));
  if(!payload?.itemmarket||!Array.isArray(payload.itemmarket.listings)){
   throw new Error('Formato desconhecido do mercado para o item #'+id);
@@ -138,39 +144,51 @@ async function getCatalog(){
  catalog=items;return items;
 }
 $('scan').addEventListener('click',()=>run(async()=>{
- const q=$('custom').value.trim(),nums=q.split(/[;,\n ]+/).filter(x=>/^\d+$/.test(x)).map(Number);
- const count=Math.min(30,Math.max(1,value('scanCount')));
- let selected=[];
+ const q=$('custom').value.trim(),count=Math.min(30,Math.max(1,value('scanCount')));
+ const mode=$('sourceMode').value,category=$('category').value;
+ const opts={category,count,query:q,capital:value('capital')};
+ let selected=[],warning='',sourceLabel='';
  fetchErrors=[];lastRecords=0;
- $('scanState').textContent='Obtendo catálogo de itens…';
- notice('marketNotice','Iniciando pesquisa manual de múltiplos itens. Os resultados não são ofertas de compra garantidas.');
+ $('scanState').textContent='Preparando lista de itens…';
+ notice('marketNotice','Iniciando pesquisa manual. Os preços virão diretamente da API oficial do Torn.');
  try{
-  let items=[];
-  try{items=await getCatalog();}
-  catch(e){
-   if(!nums.length)throw new Error('Não foi possível obter o catálogo: '+e.message);
-   notice('marketNotice','Catálogo não disponível. Tentarei apenas os IDs que você digitou.');
+  // A lista pronta usa somente IDs conhecidos: nunca tenta o endpoint torn/items.
+  if(mode==='watchlist'){
+   selected=fallbackScanItems(opts);
+   sourceLabel='lista pronta de IDs públicos';
+  }else{
+   try{
+    const items=await getCatalog();
+    selected=chooseScanItems(items,opts);
+    sourceLabel='catálogo oficial';
+   }catch(e){
+    if(e.code!==16)throw new Error('Não foi possível obter o catálogo oficial: '+e.message);
+    // Chave customizada liberou market/itemmarket, mas não torn/items.
+    selected=fallbackScanItems(opts);
+    sourceLabel='lista pronta de IDs públicos';
+    warning='A chave não tem permissão para Torn → Items (erro 16). Usei a lista pronta de itens sem consultar o catálogo; a pesquisa de preços continua funcionando. ';
+   }
   }
-  if(items.length){
-   selected=chooseScanItems(items,{category:$('category').value,capital:value('capital'),count,query:q});
-  }else{selected=[...new Set(nums)].slice(0,count).map(id=>({id,name:'Item #'+id}));}
-  if(!selected.length)throw new Error('Nenhum item encontrado para esta categoria, capital ou nome. Ajuste os filtros.');
+  if(!selected.length){
+   const explanation=mode==='catalog'?'Inclua Torn → Items na chave personalizada para varrer esta categoria ou digite IDs numéricos.':'A lista pronta cobre flores, pelúcias e Xanax. Para outras categorias, habilite o Catálogo completo com Torn → Items ou digite IDs numéricos.';
+   throw new Error('Nenhum item disponível para este filtro. '+explanation);
+  }
   scanIds=selected.map(x=>x.id);
   for(let i=0;i<selected.length;i++){
-   const x=selected[i];$('scanState').textContent='Consultando '+(i+1)+'/'+selected.length+': '+x.name;
-   try{
-    await getMarket(x.id);lastRecords++;
-   }catch(e){
-    fetchErrors.push({id:x.id,error:e.message});
-    if(/limite de consultas|\(429\)/i.test(e.message))break;
+   const item=selected[i];
+   $('scanState').textContent='Consultando '+(i+1)+'/'+selected.length+': '+item.name;
+   try{await getMarket(item.id);lastRecords++;}
+   catch(e){
+    fetchErrors.push({id:item.id,error:e.message});
+    if(e.code===16||e.code===5||/limite de consultas|\(429\)/i.test(e.message))break;
    }
   }
   lastScan=Date.now();analyze();
-  $('scanState').textContent='Pesquisa finalizada às '+new Date().toLocaleTimeString('pt-BR')+'.';
-  const problems=fetchErrors.length?' Falhas: '+fetchErrors.slice(0,3).map(x=>'#'+x.id+': '+x.error).join(' | ')+'.':'';
-  notice('marketNotice','Consulta feita em '+lastRecords+' de '+selected.length+' itens. '+
-    allResults.length+' oportunidades hipotéticas após os filtros. '+problems+
-    ' Verifique sempre os anúncios no Torn antes de operar.',fetchErrors.length===0);
+  $('scanState').textContent='Pesquisa concluída às '+new Date().toLocaleTimeString('pt-BR')+'.';
+  const problems=fetchErrors.length?' Falhas: '+fetchErrors.slice(0,2).map(x=>'#'+x.id+': '+x.error).join(' | ')+'.':'';
+  notice('marketNotice',warning+'Fonte da seleção: '+sourceLabel+'. Preços consultados em '+lastRecords+' de '+selected.length+
+     ' itens; '+allResults.length+' oportunidades hipotéticas após os filtros. '+problems+
+     ' Verifique ofertas e riscos no jogo antes de operar.',fetchErrors.length===0&&!warning);
  }catch(e){$('scanState').textContent='Busca não concluída.';notice('marketNotice',e.message);}
 }));
 $('single').addEventListener('click',()=>run(async()=>{
@@ -187,7 +205,7 @@ $('single').addEventListener('click',()=>run(async()=>{
 for(const id of ['capital','minMargin','fee','maxUnits','maxAge','sort'])$(id).addEventListener('input',()=>{
  if(scanIds.length)analyze();
 });
-for(const id of ['category','scanCount','custom'])$(id).addEventListener('input',()=>{
+for(const id of ['sourceMode','category','scanCount','custom'])$(id).addEventListener('input',()=>{
  if(scanIds.length)notice('marketNotice','Seleção de itens alterada. Clique em Pesquisar oportunidades agora para obter o novo conjunto. Nada é consultado automaticamente.');
 });
 $('csv').addEventListener('click',()=>{
