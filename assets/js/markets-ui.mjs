@@ -96,6 +96,14 @@ function renderGw2(){
  render(rows.slice(0,80),'c');
  $('summary').textContent=total+' itens com duas cotações válidas. '+rows.length+' atendem aos filtros; exibindo os primeiros '+Math.min(80,rows.length)+'. Lucro teórico, não garantido.';
 }
+async function getGw2Json(url){
+ try{return await getJson(url);}
+ catch(first){
+  if(!/HTTP (429|502|503|504)|Failed to fetch|NetworkError|fetch failed/i.test(first.message))throw first;
+  await new Promise(resolve=>setTimeout(resolve,900));
+  return getJson(url);
+ }
+}
 async function scanGw2(){
  const now=Date.now();
  if(gw2Data&&now-lastAt<60000){message('Consulta recente: os filtros estão disponíveis sem novas requisições por um minuto.',true);renderGw2();return;}
@@ -104,7 +112,7 @@ async function scanGw2(){
  const all=[],issues=[],visited=new Set();
  state('GW2: consultando primeira página de preços…');
  let first;
- try{first=await getJson(base+'0&page_size=200');}
+ try{first=await getGw2Json(base+'0&page_size=200');}
  catch(e){throw new Error('Página 0: '+e.message+'. O endpoint pode estar temporariamente indisponível; tente o link de teste da API.');}
  if(!Array.isArray(first.data)||!first.data.length)throw new Error('A primeira página não retornou lista de preços.');
  all.push(...first.data);visited.add(0);
@@ -115,7 +123,7 @@ async function scanGw2(){
   if(visited.has(page))continue;
   state('GW2: consultando página '+page+' ('+visited.size+'/'+pages.length+')');
   try{
-   const r=await getJson(base+page+'&page_size=200');
+   const r=await getGw2Json(base+page+'&page_size=200');
    if(!Array.isArray(r.data))throw new Error('Resposta inválida');
    all.push(...r.data);visited.add(page);
    if(!r.data.length)break;
@@ -130,7 +138,7 @@ async function scanGw2(){
    const nameMap=new Map();
    for(const ids of idBatches){
     try{
-     const named=await getJson('https://api.guildwars2.com/v2/items?ids='+ids.join(',')+'&lang=pt');
+     const named=await getGw2Json('https://api.guildwars2.com/v2/items?ids='+ids.join(',')+'&lang=en');
      if(Array.isArray(named.data))for(const x of named.data)nameMap.set(Number(x.id),String(x.name));
     }catch(e){issues.push('Nomes: '+e.message);}
    }
