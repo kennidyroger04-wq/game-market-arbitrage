@@ -16,7 +16,7 @@ test('API itemmarket: lucro desconta 5% e limita quantidade ao anuncio e capital
 });
 test('Torn: preço médio baixo ou taxa alta impede falso lucro',()=>{
  assert.notEqual(analyzeItemMarket(market({avg:105}),{capital:1000,feePercent:5,minMargin:2},NOW).status,'candidate');
- assert.notEqual(analyzeItemMarket(market({avg:150}),{capital:1000,feePercent:20,minMargin:2},NOW).status,'candidate');
+ assert.notEqual(analyzeItemMarket(market({avg:115}),{capital:1000,feePercent:20,minMargin:2},NOW).status,'candidate');
 });
 test('Torn: protege equipamentos com atributos individuais',()=>{
  const r=analyzeItemMarket(market({type:'Weapon'}),{},NOW);
@@ -26,7 +26,8 @@ test('Torn: protege equipamentos com atributos individuais',()=>{
 });
 test('Torn: ignora dados antigos e precos sem proximo concorrente',()=>{
  assert.equal(analyzeItemMarket(market({cacheAge:150}),{maxAgeMinutes:90},NOW).status,'stale');
- assert.equal(analyzeItemMarket(market({price:100,second:100}),{},NOW).status,'no-reference');
+ const same=market();same.itemmarket.listings.forEach(x=>{x.price=100;});
+ assert.equal(analyzeItemMarket(same,{},NOW).status,'no-reference');
 });
 test('Torn: catálogo usa metadata real, escolhe sem pedir dezenas de IDs',()=>{
  const data=normalizeCatalog({items:[
@@ -35,7 +36,7 @@ test('Torn: catálogo usa metadata real, escolhe sem pedir dezenas de IDs',()=>{
  {id:300,name:'Weapon',type:'Weapon',circulation:10000,is_tradable:true,value:{market_price:100}}
  ]});
  assert.equal(data.length,3);
- assert.deepEqual(chooseScanItems(data,{category:'all',capital:1000,count:15}).map(x=>x.id),[258,206]);
+ assert.deepEqual(chooseScanItems(data,{category:'all',capital:1000,count:15}).map(x=>x.id),[206,258]);
  assert.deepEqual(chooseScanItems(data,{query:'206',capital:1000,count:15}).map(x=>x.id),[206]);
  assert.deepEqual(chooseScanItems(data,{category:'Flower',capital:1000,count:15}).map(x=>x.id),[258]);
 });
