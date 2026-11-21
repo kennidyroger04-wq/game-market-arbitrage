@@ -20,6 +20,8 @@ const best=(o,names)=>{
  for(const name of names){const key=idx.get(normalize(name));if(key!==undefined&&o[key]!=null&&o[key]!=='')return o[key];}
  return undefined;
 };
+const versionOf=x=>{const v=normalize(x);if(['dofus3','unity','dofusunity','dofus30','3'].includes(v))return 'dofus3';if(v.includes('retro'))return 'retro';if(v.includes('touch'))return 'touch';return '';};
+const serverOf=x=>normalize(x).replace('dakkal','dakal');
 const parsableDate=x=>{
  if(x==null||x==='')return null;
  if(typeof x==='number'){const ms=x<1e11?x*1000:x;return Number.isFinite(ms)?ms:null;}
@@ -65,28 +67,34 @@ function lotPrice(row,n){
  }
  return 0;
 }
-function normalizeEntries(rows,selectedServer){
- const grouped=new Map(),stats={sourceRows:rows.length,unusable:0,differentServer:0,missingServer:0};
+function normalizeEntries(rows,selectedServer,selectedVersion='dofus3',source='mizanbot',allowMissingServer=false,allowMissingVersion=false){
+ const grouped=new Map(),stats={sourceRows:rows.length,unusable:0,differentServer:0,missingServer:0,differentVersion:0,missingVersion:0};
+ const sourceVersion=['mizanbot','kamaradar','dofusteam','hdvclair'].includes(source)?'dofus3':'';
  for(const item of rows){
   if(!item||typeof item!=='object'){stats.unusable++;continue;}
   const nested=best(item,['item','object','resource']);
   const name=String(best(item,['name','item_name','itemName','nom','objet','resource_name','itemLabel','label','title'])??(typeof nested==='object'&&nested?best(nested,['name','label','title']):nested)??'').trim();
   const id=best(item,['item_id','itemId','id','gid']);
-  const itemLabel=name|| (id?('Item #'+id):'');
+  const itemLabel=name||(id?'Item #'+id:'');
   if(!itemLabel){stats.unusable++;continue;}
   const rawServer=best(item,['server','server_name','serverName','world','worldName','server_label'])??item.__defaultServer;
   const server=typeof rawServer==='object'?String(best(rawServer,['name','label'])??''):String(rawServer??'').trim();
-  if(server&&selectedServer&&normalize(server)!==normalize(selectedServer)){stats.differentServer++;continue;}
-  if(!server)stats.missingServer++;
+  if(server&&selectedServer&&serverOf(server)!==serverOf(selectedServer)){stats.differentServer++;continue;}
+  if(!server&&!allowMissingServer){stats.missingServer++;continue;}
+  const rawVersion=best(item,['version','game_version','gameVersion','game','edition','client']);
+  const actualVersion=versionOf(rawVersion)||(!rawVersion?sourceVersion:'');
+  if(rawVersion&&!actualVersion){stats.missingVersion++;continue;}
+  if(actualVersion&&actualVersion!==selectedVersion){stats.differentVersion++;continue;}
+  if(!actualVersion&&!allowMissingVersion){stats.missingVersion++;continue;}
   const date=parsableDate(best(item,['updated_at','updatedAt','last_updated','lastUpdate','updated','date','timestamp','checked_at','observed_at','collected_at','created_at']));
   const prices=Object.fromEntries(sizes.map(n=>[n,lotPrice(item,n)]));
   const lotSize=Number(best(item,['lot_size','lotSize','lot','size']));
   const onePrice=money(best(item,['price','unit_price','kamas','amount','value']));
   if(sizes.includes(lotSize)&&onePrice>0&&!prices[lotSize])prices[lotSize]=onePrice;
   if(!sizes.some(n=>prices[n]>0)){stats.unusable++;continue;}
-  const k=normalize(itemLabel)+'|'+normalize(selectedServer||server);
+  const k=normalize(itemLabel)+'|'+serverOf(selectedServer||server)+'|'+selectedVersion;
   let group=grouped.get(k);
-  if(!group){group={name:itemLabel,server:selectedServer||server,prices:{},dates:{}};grouped.set(k,group);}
+  if(!group){group={name:itemLabel,server:selectedServer||server,version:selectedVersion,source,prices:{},dates:{}};grouped.set(k,group);}
   for(const n of sizes){
    if(prices[n]>0&&(!group.prices[n]||date&&(!group.dates[n]||date>group.dates[n]))){
     group.prices[n]=prices[n];group.dates[n]=date;
